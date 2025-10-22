@@ -7,7 +7,7 @@
 require_once __DIR__ . '/AIProvider.php';
 
 class GeminiProvider extends AIProvider {
-    private $endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/';
+    private $endpoint = 'https://generativelanguage.googleapis.com/v1/models/';
 
     /**
      * Constructor
@@ -16,6 +16,18 @@ class GeminiProvider extends AIProvider {
      */
     public function __construct($api_key, $model = 'gemini-pro') {
         parent::__construct($api_key, $model);
+
+        // Map model names to correct API names
+        $modelMap = [
+            'gemini-1.5-pro' => 'gemini-1.5-pro-latest',
+            'gemini-1.5-flash' => 'gemini-1.5-flash-latest',
+            'gemini-pro' => 'gemini-pro'
+        ];
+
+        // Use mapped model name if exists
+        if (isset($modelMap[$model])) {
+            $this->model = $modelMap[$model];
+        }
     }
 
     /**
