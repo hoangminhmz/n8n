@@ -82,16 +82,16 @@ include __DIR__ . '/includes/header.php';
         <h2 class="card-title">Quick Actions</h2>
     </div>
     <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-        <a href="/admin/posts.php?action=new" class="btn btn-primary">
+        <a href="<?= BASE_PATH ?>admin/posts.php?action=new" class="btn btn-primary">
             ✏️ New Post
         </a>
-        <a href="/admin/campaigns.php?action=new" class="btn btn-success">
+        <a href="<?= BASE_PATH ?>admin/campaigns.php?action=new" class="btn btn-success">
             🤖 New Campaign
         </a>
-        <a href="/admin/queue.php" class="btn btn-outline">
+        <a href="<?= BASE_PATH ?>admin/queue.php" class="btn btn-outline">
             ⏱️ View Queue (<?= $stats['pending_queue'] ?>)
         </a>
-        <a href="/admin/settings.php" class="btn btn-outline">
+        <a href="<?= BASE_PATH ?>admin/settings.php" class="btn btn-outline">
             ⚙️ Settings
         </a>
     </div>
@@ -101,7 +101,7 @@ include __DIR__ . '/includes/header.php';
 <div class="card">
     <div class="card-header">
         <h2 class="card-title">Recent Posts</h2>
-        <a href="/admin/posts.php" class="btn btn-sm btn-outline">View All →</a>
+        <a href="<?= BASE_PATH ?>admin/posts.php" class="btn btn-sm btn-outline">View All →</a>
     </div>
 
     <?php if (empty($recentPosts)): ?>
@@ -109,7 +109,7 @@ include __DIR__ . '/includes/header.php';
             <div class="empty-state-icon">📝</div>
             <h3>No Posts Yet</h3>
             <p>Start creating content or set up an AI campaign</p>
-            <a href="/admin/posts.php?action=new" class="btn btn-primary">Create Your First Post</a>
+            <a href="<?= BASE_PATH ?>admin/posts.php?action=new" class="btn btn-primary">Create Your First Post</a>
         </div>
     <?php else: ?>
         <div class="table-container">
@@ -153,9 +153,9 @@ include __DIR__ . '/includes/header.php';
                             <td><?= number_format($post->views) ?></td>
                             <td><?= date('M j, Y', strtotime($post->created_at)) ?></td>
                             <td>
-                                <a href="/admin/posts.php?action=edit&id=<?= $post->id ?>" class="btn btn-sm btn-outline">Edit</a>
+                                <a href="<?= BASE_PATH ?>admin/posts.php?action=edit&id=<?= $post->id ?>" class="btn btn-sm btn-outline">Edit</a>
                                 <?php if ($post->status === 'published'): ?>
-                                    <a href="/post/<?= $post->slug ?>" target="_blank" class="btn btn-sm btn-outline">View</a>
+                                    <a href="<?= BASE_PATH ?>post/<?= $post->slug ?>" target="_blank" class="btn btn-sm btn-outline">View</a>
                                 <?php endif; ?>
                             </td>
                         </tr>
@@ -182,7 +182,7 @@ include __DIR__ . '/includes/header.php';
     <div class="card">
         <div class="card-header">
             <h2 class="card-title">Active AI Campaigns</h2>
-            <a href="/admin/campaigns.php" class="btn btn-sm btn-outline">View All →</a>
+            <a href="<?= BASE_PATH ?>admin/campaigns.php" class="btn btn-sm btn-outline">View All →</a>
         </div>
 
         <div style="display: grid; gap: 1rem;">
@@ -203,7 +203,7 @@ include __DIR__ . '/includes/header.php';
                                 </span>
                             </div>
                         </div>
-                        <a href="/admin/campaigns.php?id=<?= $campaign->id ?>" class="btn btn-sm btn-outline">
+                        <a href="<?= BASE_PATH ?>admin/campaigns.php?id=<?= $campaign->id ?>" class="btn btn-sm btn-outline">
                             Manage →
                         </a>
                     </div>

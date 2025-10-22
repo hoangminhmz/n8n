@@ -135,7 +135,8 @@ class Auth {
     public function requireLogin($redirect_to = null) {
         if (!$this->isLoggedIn()) {
             $redirect = $redirect_to ?? $_SERVER['REQUEST_URI'];
-            header('Location: /admin/login.php?redirect=' . urlencode($redirect));
+            $basePath = defined('BASE_PATH') ? BASE_PATH : '/';
+            header('Location: ' . $basePath . 'admin/login.php?redirect=' . urlencode($redirect));
             exit;
         }
     }

@@ -5,16 +5,16 @@
 
 session_start();
 
-// Redirect if already logged in
-if (isset($_SESSION['user_id'])) {
-    header('Location: /admin/index.php');
-    exit;
-}
-
-// Load config
+// Load config first to get BASE_PATH
 require_once __DIR__ . '/../config.php';
 require_once SITE_PATH . '/core/Database.php';
 require_once SITE_PATH . '/core/Auth.php';
+
+// Redirect if already logged in
+if (isset($_SESSION['user_id'])) {
+    header('Location: ' . BASE_PATH . 'admin/index.php');
+    exit;
+}
 
 $error = '';
 $success = '';
@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $auth = new Auth();
 
         if ($auth->login($username, $password)) {
-            $redirect = $_GET['redirect'] ?? '/admin/index.php';
+            $redirect = $_GET['redirect'] ?? BASE_PATH . 'admin/index.php';
             header('Location: ' . $redirect);
             exit;
         } else {

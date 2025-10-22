@@ -525,7 +525,12 @@ header('Expires: 0');
                         $configContent .= "define('SITE_URL', '{$_SESSION['site_url']}');\n";
                         $configContent .= "define('SITE_PATH', __DIR__);\n";
                         $configContent .= "define('CONTENT_PATH', __DIR__ . '/content');\n";
-                        $configContent .= "define('BASE_PATH', '/');\n";
+
+                        // Auto-detect BASE_PATH from SITE_URL
+                        $parsedUrl = parse_url($_SESSION['site_url']);
+                        $basePath = isset($parsedUrl['path']) ? rtrim($parsedUrl['path'], '/') . '/' : '/';
+                        $configContent .= "define('BASE_PATH', '{$basePath}');\n";
+
                         $configContent .= "define('CURRENT_THEME', 'default');\n";
                         $configContent .= "define('CACHE_ENABLED', true);\n";
                         $configContent .= "define('CACHE_TTL', 3600);\n";
@@ -646,8 +651,10 @@ header('Expires: 0');
                             <p>LightBlog CMS has been successfully installed.</p>
                         </div>';
 
+                        // Use the calculated BASE_PATH for the admin link
+                        $adminUrl = rtrim($basePath, '/') . '/admin';
                         echo '<div class="btn-group">
-                            <a href="/admin" class="btn btn-primary">Go to Admin Panel →</a>
+                            <a href="' . htmlspecialchars($adminUrl) . '" class="btn btn-primary">Go to Admin Panel →</a>
                         </div>';
 
                         // Delete install.php for security

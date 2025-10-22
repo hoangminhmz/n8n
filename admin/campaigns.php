@@ -106,7 +106,7 @@ include __DIR__ . '/includes/header.php';
 
                         <div style="display: flex; gap: 0.5rem;">
                             <a href="?action=view&id=<?= $camp->id ?>" class="btn btn-sm btn-primary">Manage</a>
-                            <a href="/admin/queue.php?campaign=<?= $camp->id ?>" class="btn btn-sm btn-outline">View Queue</a>
+                            <a href="<?= BASE_PATH ?>admin/queue.php?campaign=<?= $camp->id ?>" class="btn btn-sm btn-outline">View Queue</a>
                         </div>
                     </div>
                 <?php endforeach; ?>
@@ -324,7 +324,7 @@ include __DIR__ . '/includes/header.php';
 
         <div class="alert alert-info" style="margin-top: 1rem;">
             💡 Topics will be automatically queued for AI generation and scheduled according to your campaign settings.
-            Make sure you have set up your AI API keys in <a href="/admin/settings.php">Settings</a>.
+            Make sure you have set up your AI API keys in <a href="<?= BASE_PATH ?>admin/settings.php">Settings</a>.
         </div>
     </div>
 <?php endif; ?>
