@@ -47,6 +47,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $topics = $campaignManager->generateTopics($_POST['campaign_id'], (int)$_POST['topic_count']);
         $queued = $campaignManager->queueTopics($_POST['campaign_id'], $topics);
         $message = "Queued {$queued} topics for generation!";
+    } elseif (isset($_POST['pause_campaign'])) {
+        $campaignManager->pause($_POST['campaign_id']);
+        $message = 'Campaign paused successfully!';
+        $action = 'list';
+    } elseif (isset($_POST['resume_campaign'])) {
+        $campaignManager->resume($_POST['campaign_id']);
+        $message = 'Campaign resumed successfully!';
+        $action = 'list';
+    } elseif (isset($_POST['delete_campaign'])) {
+        $campaignManager->delete($_POST['campaign_id']);
+        $message = 'Campaign deleted successfully!';
+        $action = 'list';
+        $campaignId = null;
+    } elseif (isset($_POST['generate_now'])) {
+        $result = $campaignManager->generateNow($_POST['campaign_id'], $_POST['topic'] ?? null);
+        if ($result['success']) {
+            $message = 'Content generation started! Topic: ' . htmlspecialchars($result['topic']);
+        } else {
+            $message = 'Error: ' . $result['message'];
+        }
     }
 }
 
@@ -104,9 +124,26 @@ include __DIR__ . '/includes/header.php';
                             <?= $progress['published'] ?> / <?= $progress['target'] ?> posts (<?= $progress['percentage'] ?>%)
                         </p>
 
-                        <div style="display: flex; gap: 0.5rem;">
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                             <a href="?action=view&id=<?= $camp->id ?>" class="btn btn-sm btn-primary">Manage</a>
                             <a href="<?= BASE_PATH ?>admin/queue.php?campaign=<?= $camp->id ?>" class="btn btn-sm btn-outline">View Queue</a>
+
+                            <?php if ($camp->status === 'active'): ?>
+                                <form method="POST" style="display: inline; margin: 0;">
+                                    <input type="hidden" name="campaign_id" value="<?= $camp->id ?>">
+                                    <button type="submit" name="pause_campaign" class="btn btn-sm btn-warning" onclick="return confirm('Pause this campaign?')">⏸ Pause</button>
+                                </form>
+                            <?php else: ?>
+                                <form method="POST" style="display: inline; margin: 0;">
+                                    <input type="hidden" name="campaign_id" value="<?= $camp->id ?>">
+                                    <button type="submit" name="resume_campaign" class="btn btn-sm btn-success">▶ Resume</button>
+                                </form>
+                            <?php endif; ?>
+
+                            <form method="POST" style="display: inline; margin: 0;">
+                                <input type="hidden" name="campaign_id" value="<?= $camp->id ?>">
+                                <button type="submit" name="delete_campaign" class="btn btn-sm btn-danger" onclick="return confirm('Delete this campaign? This cannot be undone!')">🗑 Delete</button>
+                            </form>
                         </div>
                     </div>
                 <?php endforeach; ?>
@@ -325,6 +362,46 @@ include __DIR__ . '/includes/header.php';
         <div class="alert alert-info" style="margin-top: 1rem;">
             💡 Topics will be automatically queued for AI generation and scheduled according to your campaign settings.
             Make sure you have set up your AI API keys in <a href="<?= BASE_PATH ?>admin/settings.php">Settings</a>.
+        </div>
+
+        <hr style="margin: 2rem 0;">
+
+        <h3 style="margin-bottom: 1rem;">⚡ Generate Content Now (Manual)</h3>
+        <form method="POST" style="display: flex; gap: 1rem; align-items: end;">
+            <input type="hidden" name="campaign_id" value="<?= $campaign->id ?>">
+            <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                <label>Topic (Optional - leave blank to auto-generate)</label>
+                <input type="text" name="topic" placeholder="e.g., Best Laptops in <?= date('Y') ?>">
+            </div>
+            <button type="submit" name="generate_now" class="btn btn-success">🚀 Generate Now</button>
+        </form>
+
+        <div class="alert alert-warning" style="margin-top: 1rem;">
+            ⚡ <strong>Instant Generation:</strong> This will queue content with high priority for immediate processing.
+            The AI will generate content based on your campaign settings. Check the
+            <a href="<?= BASE_PATH ?>admin/queue.php?campaign=<?= $campaign->id ?>">queue</a> to monitor progress.
+        </div>
+
+        <hr style="margin: 2rem 0;">
+
+        <h3 style="margin-bottom: 1rem;">Campaign Actions</h3>
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+            <?php if ($campaign->status === 'active'): ?>
+                <form method="POST" style="display: inline; margin: 0;">
+                    <input type="hidden" name="campaign_id" value="<?= $campaign->id ?>">
+                    <button type="submit" name="pause_campaign" class="btn btn-warning" onclick="return confirm('Pause this campaign?')">⏸ Pause Campaign</button>
+                </form>
+            <?php else: ?>
+                <form method="POST" style="display: inline; margin: 0;">
+                    <input type="hidden" name="campaign_id" value="<?= $campaign->id ?>">
+                    <button type="submit" name="resume_campaign" class="btn btn-success">▶ Resume Campaign</button>
+                </form>
+            <?php endif; ?>
+
+            <form method="POST" style="display: inline; margin: 0;">
+                <input type="hidden" name="campaign_id" value="<?= $campaign->id ?>">
+                <button type="submit" name="delete_campaign" class="btn btn-danger" onclick="return confirm('Delete this campaign and all associated data? This cannot be undone!')">🗑 Delete Campaign</button>
+            </form>
         </div>
     </div>
 <?php endif; ?>

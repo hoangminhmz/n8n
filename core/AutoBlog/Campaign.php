@@ -192,4 +192,52 @@ class Campaign {
             'ai_usage' => $aiUsage
         ];
     }
+
+    /**
+     * Pause campaign
+     */
+    public function pause($id) {
+        return $this->update($id, ['status' => 'paused']);
+    }
+
+    /**
+     * Resume campaign
+     */
+    public function resume($id) {
+        return $this->update($id, ['status' => 'active']);
+    }
+
+    /**
+     * Generate content immediately (manual trigger)
+     */
+    public function generateNow($campaign_id, $topic = null) {
+        $campaign = $this->get($campaign_id);
+        if (!$campaign) {
+            return ['success' => false, 'message' => 'Campaign not found'];
+        }
+
+        // If no topic provided, generate one
+        if (!$topic) {
+            $topics = $this->generateTopics($campaign_id, 1);
+            $topic = $topics[0] ?? 'General Article about ' . $campaign->niche;
+        }
+
+        // Queue immediately (scheduled for now)
+        $queueId = $this->db->insert('ai_queue', [
+            'campaign_id' => $campaign_id,
+            'topic' => $topic,
+            'keywords' => json_encode(['primary' => [$topic]]),
+            'status' => 'pending',
+            'priority' => 10, // High priority for manual generation
+            'scheduled_for' => date('Y-m-d H:i:s'), // Schedule for now
+            'created_at' => date('Y-m-d H:i:s')
+        ]);
+
+        return [
+            'success' => true,
+            'message' => 'Content generation queued',
+            'queue_id' => $queueId,
+            'topic' => $topic
+        ];
+    }
 }
