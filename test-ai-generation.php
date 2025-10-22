@@ -55,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
 
         // 3. Initialize content generator
         echo "Step 3: Initializing AI content generator...\n";
-        $generator = new ContentGenerator();
+        $generator = new ContentGenerator($campaign);
         echo "✓ Content generator ready\n\n";
 
         // 4. Generate content
@@ -64,12 +64,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
 
         $startTime = microtime(true);
 
-        $content = $generator->generate($campaign, [
-            'topic' => $topic,
-            'keywords' => [$topic],
-            'word_count_min' => $campaign->word_count_min,
-            'word_count_max' => $campaign->word_count_max
-        ]);
+        $keywords = [
+            'primary' => [$topic],
+            'lsi' => []
+        ];
+
+        $content = $generator->generateArticle($topic, $keywords);
 
         $duration = round(microtime(true) - $startTime, 2);
 
