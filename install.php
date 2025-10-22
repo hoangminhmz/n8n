@@ -219,23 +219,24 @@
 
                         <div id="mysqlFields" style="display: none;">
                             <div class="form-group">
-                                <label>MySQL Host</label>
-                                <input type="text" name="db_host" value="localhost">
+                                <label>MySQL Host *</label>
+                                <input type="text" name="db_host" value="localhost" id="db_host">
                             </div>
 
                             <div class="form-group">
-                                <label>Database Name</label>
-                                <input type="text" name="db_name" value="lightblog">
+                                <label>Database Name *</label>
+                                <input type="text" name="db_name" value="lightblog" id="db_name">
                             </div>
 
                             <div class="form-group">
-                                <label>Database User</label>
-                                <input type="text" name="db_user">
+                                <label>Database User *</label>
+                                <input type="text" name="db_user" id="db_user">
                             </div>
 
                             <div class="form-group">
                                 <label>Database Password</label>
-                                <input type="password" name="db_pass">
+                                <input type="password" name="db_pass" id="db_pass" placeholder="Leave empty if no password">
+                                <small>Note: Leave empty only if your database has no password</small>
                             </div>
                         </div>
 
@@ -251,7 +252,37 @@
                     const dbType = document.getElementById('dbType').value;
                     const mysqlFields = document.getElementById('mysqlFields');
                     mysqlFields.style.display = dbType === 'mysql' ? 'block' : 'none';
+
+                    // Update field requirements
+                    const fields = ['db_host', 'db_name', 'db_user'];
+                    fields.forEach(fieldId => {
+                        const field = document.getElementById(fieldId);
+                        if (field) {
+                            field.required = (dbType === 'mysql');
+                        }
+                    });
                 }
+
+                // Validate form before submission
+                document.addEventListener('DOMContentLoaded', function() {
+                    const form = document.querySelector('form[action="?step=3"]');
+                    if (form) {
+                        form.addEventListener('submit', function(e) {
+                            const dbType = document.getElementById('dbType').value;
+                            if (dbType === 'mysql') {
+                                const host = document.getElementById('db_host').value.trim();
+                                const name = document.getElementById('db_name').value.trim();
+                                const user = document.getElementById('db_user').value.trim();
+
+                                if (!host || !name || !user) {
+                                    e.preventDefault();
+                                    alert('Please fill in all required MySQL fields (Host, Database Name, and User).');
+                                    return false;
+                                }
+                            }
+                        });
+                    }
+                });
                 </script>
 
             <?php elseif ($_GET['step'] == 3 && $_SERVER['REQUEST_METHOD'] === 'POST'): ?>
@@ -261,7 +292,26 @@
                 $_SESSION['db_host'] = $_POST['db_host'] ?? '';
                 $_SESSION['db_name'] = $_POST['db_name'] ?? '';
                 $_SESSION['db_user'] = $_POST['db_user'] ?? '';
-                $_SESSION['db_pass'] = $_POST['db_pass'] ?? '';
+                $_SESSION['db_pass'] = isset($_POST['db_pass']) ? $_POST['db_pass'] : '';
+
+                // Validate MySQL credentials
+                if ($_SESSION['db_type'] === 'mysql') {
+                    if (empty($_SESSION['db_host']) || empty($_SESSION['db_name']) || empty($_SESSION['db_user'])) {
+                        echo '<div class="step active">';
+                        echo '<h2>Error: Missing Database Credentials</h2>';
+                        echo '<div class="alert alert-error">';
+                        echo '<p>MySQL requires all connection details:</p>';
+                        echo '<ul>';
+                        if (empty($_SESSION['db_host'])) echo '<li>Database Host is required</li>';
+                        if (empty($_SESSION['db_name'])) echo '<li>Database Name is required</li>';
+                        if (empty($_SESSION['db_user'])) echo '<li>Database User is required</li>';
+                        echo '</ul>';
+                        echo '</div>';
+                        echo '<a href="?step=2" class="btn btn-primary">← Go Back</a>';
+                        echo '</div>';
+                        exit;
+                    }
+                }
 
                 // Test connection
                 $connectionSuccess = false;
@@ -450,6 +500,11 @@
                         if ($_SESSION['db_type'] === 'sqlite') {
                             $pdo = new PDO('sqlite:' . CONTENT_PATH . '/database/lightblog.db');
                         } else {
+                            // Validate MySQL credentials are present
+                            if (empty($_SESSION['db_user'])) {
+                                throw new Exception('Database user is missing. Please go back to Step 2 and enter your MySQL credentials.');
+                            }
+
                             $dsn = "mysql:host={$_SESSION['db_host']};dbname={$_SESSION['db_name']};charset=utf8mb4";
                             $pdo = new PDO($dsn, $_SESSION['db_user'], $_SESSION['db_pass']);
                         }
@@ -549,8 +604,44 @@
                         // unlink(__FILE__); // Uncommented in production
 
                     } catch (Exception $e) {
-                        echo '<div class="alert alert-error">Installation failed: ' . htmlspecialchars($e->getMessage()) . '</div>';
-                        echo '<pre>' . htmlspecialchars($e->getTraceAsString()) . '</pre>';
+                        $errorMsg = $e->getMessage();
+                        echo '<div class="alert alert-error">';
+                        echo '<h3>❌ Installation Failed</h3>';
+                        echo '<p><strong>Error:</strong> ' . htmlspecialchars($errorMsg) . '</p>';
+
+                        // Provide helpful hints based on error type
+                        if (strpos($errorMsg, 'Access denied') !== false) {
+                            echo '<div style="margin-top: 1rem; padding: 1rem; background: rgba(255,255,255,0.1); border-radius: 4px;">';
+                            echo '<p><strong>💡 Common Solutions:</strong></p>';
+                            echo '<ul style="margin: 0.5rem 0; padding-left: 1.5rem;">';
+                            echo '<li>Check that your database username is correct</li>';
+                            echo '<li>Verify that your database password is correct</li>';
+                            echo '<li>Ensure your database user has permission to access the database</li>';
+                            echo '<li>Contact your hosting provider to verify your database credentials</li>';
+                            echo '</ul>';
+                            echo '</div>';
+                        } elseif (strpos($errorMsg, 'Connection refused') !== false || strpos($errorMsg, 'Can\'t connect') !== false) {
+                            echo '<div style="margin-top: 1rem; padding: 1rem; background: rgba(255,255,255,0.1); border-radius: 4px;">';
+                            echo '<p><strong>💡 Common Solutions:</strong></p>';
+                            echo '<ul style="margin: 0.5rem 0; padding-left: 1.5rem;">';
+                            echo '<li>Check that MySQL/MariaDB is running on your server</li>';
+                            echo '<li>Verify the database host (usually "localhost")</li>';
+                            echo '<li>Contact your hosting provider if the issue persists</li>';
+                            echo '</ul>';
+                            echo '</div>';
+                        }
+
+                        echo '</div>';
+                        echo '<div class="btn-group">';
+                        echo '<a href="?step=2" class="btn btn-primary">← Go Back to Database Setup</a>';
+                        echo '<a href="?step=1" class="btn btn-secondary">Start Over</a>';
+                        echo '</div>';
+
+                        if (defined('DEBUG_MODE') && DEBUG_MODE) {
+                            echo '<details style="margin-top: 1rem;"><summary>Debug Info (click to expand)</summary>';
+                            echo '<pre style="font-size: 0.875rem; overflow: auto;">' . htmlspecialchars($e->getTraceAsString()) . '</pre>';
+                            echo '</details>';
+                        }
                     }
                     ?>
                 </div>
