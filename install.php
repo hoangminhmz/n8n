@@ -461,13 +461,42 @@
 
                         // For MySQL, we need to adjust the schema
                         if ($_SESSION['db_type'] === 'mysql') {
+                            // Replace SQLite-specific syntax with MySQL syntax
                             $schema = str_replace('INTEGER PRIMARY KEY AUTOINCREMENT', 'INT AUTO_INCREMENT PRIMARY KEY', $schema);
                             $schema = str_replace('AUTOINCREMENT', 'AUTO_INCREMENT', $schema);
+
+                            // Handle TEXT PRIMARY KEY (settings table)
+                            $schema = str_replace('key TEXT PRIMARY KEY', '`key` VARCHAR(255) PRIMARY KEY', $schema);
+
+                            // Replace INTEGER with INT
                             $schema = str_replace('INTEGER DEFAULT', 'INT DEFAULT', $schema);
                             $schema = str_replace('INTEGER,', 'INT,', $schema);
+                            $schema = str_replace('INTEGER)', 'INT)', $schema);
+
+                            // Replace REAL with DECIMAL for precision
+                            $schema = str_replace('REAL DEFAULT', 'DECIMAL(10,4) DEFAULT', $schema);
+                            $schema = str_replace('REAL,', 'DECIMAL(10,4),', $schema);
+
+                            // Replace TEXT with appropriate types for better MySQL performance
+                            // (keeping TEXT for content fields, using VARCHAR for shorter fields)
+                            $schema = str_replace('TEXT UNIQUE', 'VARCHAR(255) UNIQUE', $schema);
+                            $schema = str_replace('TEXT DEFAULT', 'VARCHAR(100) DEFAULT', $schema);
                         }
 
-                        $pdo->exec($schema);
+                        // Split schema into individual statements and execute
+                        $statements = array_filter(array_map('trim', explode(';', $schema)));
+                        foreach ($statements as $statement) {
+                            if (!empty($statement) && !preg_match('/^--/', $statement)) {
+                                try {
+                                    $pdo->exec($statement);
+                                } catch (PDOException $e) {
+                                    // Log error but continue for non-critical statements (like indexes)
+                                    if (strpos($statement, 'CREATE INDEX') === false) {
+                                        throw $e;
+                                    }
+                                }
+                            }
+                        }
                         echo '<div class="check-item success"><span class="check-icon">✓</span> Database tables created</div>';
 
                         // Create admin user
