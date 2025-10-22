@@ -1,3 +1,16 @@
+<?php
+/**
+ * LightBlog CMS Installation Wizard
+ */
+
+// Start session BEFORE any HTML output
+session_start();
+
+// Prevent caching to ensure fresh session data
+header('Cache-Control: no-cache, no-store, must-revalidate');
+header('Pragma: no-cache');
+header('Expires: 0');
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -121,8 +134,6 @@
             </div>
 
             <?php
-            session_start();
-
             // Step 1: Requirements Check
             if (!isset($_GET['step']) || $_GET['step'] == 1):
                 // Try to create content directory if it doesn't exist
@@ -446,6 +457,45 @@
 
             <?php elseif ($_GET['step'] == 6 && $_SERVER['REQUEST_METHOD'] === 'POST'): ?>
                 <?php
+                // Debug: Check if session data exists
+                $sessionKeys = ['db_type', 'db_host', 'db_name', 'db_user', 'admin_username', 'admin_email', 'admin_password'];
+                $missingKeys = [];
+                foreach ($sessionKeys as $key) {
+                    if (!isset($_SESSION[$key]) || ($_SESSION[$key] === '' && $key !== 'db_pass')) {
+                        $missingKeys[] = $key;
+                    }
+                }
+
+                if (!empty($missingKeys)) {
+                    echo '<div class="step active">';
+                    echo '<h2>⚠️ Session Data Lost</h2>';
+                    echo '<div class="alert alert-error">';
+                    echo '<p><strong>Your session data was lost during the installation process.</strong></p>';
+                    echo '<p>Missing data: ' . implode(', ', $missingKeys) . '</p>';
+                    echo '<p>This usually happens when:</p>';
+                    echo '<ul>';
+                    echo '<li>You took too long between steps (session timeout)</li>';
+                    echo '<li>Your browser has cookies disabled</li>';
+                    echo '<li>Your server has restrictive session settings</li>';
+                    echo '</ul>';
+                    echo '<p><strong>Solution:</strong> Please start the installation process again from the beginning.</p>';
+                    echo '</div>';
+                    echo '<div class="btn-group">';
+                    echo '<a href="?step=1" class="btn btn-primary">Start Over</a>';
+                    echo '</div>';
+
+                    // Debug info
+                    echo '<details style="margin-top: 1rem; padding: 1rem; background: rgba(0,0,0,0.05); border-radius: 0.5rem;">';
+                    echo '<summary style="cursor: pointer; font-weight: bold;">🔍 Debug Information</summary>';
+                    echo '<pre style="margin-top: 0.5rem; font-size: 0.875rem; overflow: auto;">';
+                    echo 'Session ID: ' . session_id() . "\n";
+                    echo 'Session Data: ' . print_r($_SESSION, true);
+                    echo '</pre>';
+                    echo '</details>';
+                    echo '</div>';
+                    exit;
+                }
+
                 $_SESSION['site_name'] = $_POST['site_name'];
                 $_SESSION['site_tagline'] = $_POST['site_tagline'];
                 $_SESSION['site_url'] = rtrim($_POST['site_url'], '/');
