@@ -298,7 +298,7 @@ class Template {
         $cacheKey = 'setting_' . $key;
 
         return self::$cache->remember($cacheKey, function() use ($key, $default) {
-            $setting = self::$db->queryOne("SELECT value FROM settings WHERE key = ?", [$key]);
+            $setting = self::$db->queryOne("SELECT value FROM settings WHERE `key` = ?", [$key]);
             return $setting ? $setting->value : $default;
         }, 86400); // Cache for 24 hours
     }
