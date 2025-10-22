@@ -150,9 +150,13 @@ Database File: <?= CONTENT_PATH ?>/database/lightblog.db
                                 echo '<div class="check-item" style="color: #856404;">⚠ Table already exists: ' . htmlspecialchars($matches[1]) . '</div>';
                             }
                         } else {
-                            // Real error
+                            // Real error - show the SQL statement
                             $errors[] = $e->getMessage();
                             echo '<div class="error">❌ Error: ' . htmlspecialchars($e->getMessage()) . '</div>';
+                            echo '<details style="margin: 0.5rem 0; padding: 0.5rem; background: #f8f9fa; border-radius: 0.25rem;">';
+                            echo '<summary style="cursor: pointer;">View SQL Statement</summary>';
+                            echo '<pre style="margin-top: 0.5rem; font-size: 0.75rem; overflow-x: auto;">' . htmlspecialchars($statement) . '</pre>';
+                            echo '</details>';
                         }
                     }
                 }
