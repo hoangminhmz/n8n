@@ -44,9 +44,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $message = 'Campaign created successfully!';
         $action = 'view';
     } elseif (isset($_POST['generate_topics'])) {
-        $topics = $campaignManager->generateTopics($_POST['campaign_id'], (int)$_POST['topic_count']);
-        $queued = $campaignManager->queueTopics($_POST['campaign_id'], $topics);
-        $message = "Queued {$queued} topics for generation!";
+        // Generate topics for preview
+        $topicCount = (int)$_POST['topic_count'];
+        $generatedTopics = $campaignManager->generateTopics($_POST['campaign_id'], $topicCount);
+        $action = 'preview_topics';
+        // Store topics in session for confirmation
+        $_SESSION['preview_topics'] = $generatedTopics;
+        $_SESSION['preview_campaign_id'] = $_POST['campaign_id'];
+    } elseif (isset($_POST['confirm_queue'])) {
+        // Queue the previewed topics
+        $topics = $_SESSION['preview_topics'] ?? [];
+        if (!empty($topics)) {
+            $queued = $campaignManager->queueTopics($_POST['campaign_id'], $topics);
+            $message = "✅ Successfully queued {$queued} AI-generated topics!";
+            unset($_SESSION['preview_topics']);
+            unset($_SESSION['preview_campaign_id']);
+        }
+        $action = 'view';
+    } elseif (isset($_POST['regenerate_topics'])) {
+        // Regenerate topics
+        $topicCount = (int)$_POST['topic_count'];
+        $generatedTopics = $campaignManager->generateTopics($_POST['campaign_id'], $topicCount);
+        $action = 'preview_topics';
+        $_SESSION['preview_topics'] = $generatedTopics;
+        $_SESSION['preview_campaign_id'] = $_POST['campaign_id'];
     } elseif (isset($_POST['pause_campaign'])) {
         $campaignManager->pause($_POST['campaign_id']);
         $message = 'Campaign paused successfully!';
@@ -351,19 +372,25 @@ include __DIR__ . '/includes/header.php';
 
         <hr style="margin: 2rem 0;">
 
-        <h3 style="margin-bottom: 1rem;">Generate Topics</h3>
+        <h3 style="margin-bottom: 1rem;">🤖 AI-Powered Topic Generation</h3>
         <form method="POST" style="display: flex; gap: 1rem; align-items: end;">
             <input type="hidden" name="campaign_id" value="<?= $campaign->id ?>">
             <div class="form-group" style="flex: 1; margin-bottom: 0;">
-                <label>Number of Topics</label>
+                <label>Number of Topics to Generate</label>
                 <input type="number" name="topic_count" value="10" min="1" max="50">
             </div>
-            <button type="submit" name="generate_topics" class="btn btn-primary">Generate & Queue Topics</button>
+            <button type="submit" name="generate_topics" class="btn btn-primary">🧠 Generate Topics with AI</button>
         </form>
 
-        <div class="alert alert-info" style="margin-top: 1rem;">
-            💡 Topics will be automatically queued for AI generation and scheduled according to your campaign settings.
-            Make sure you have set up your AI API keys in <a href="<?= BASE_PATH ?>admin/settings.php">Settings</a>.
+        <div class="alert alert-success" style="margin-top: 1rem;">
+            <strong>✨ Smart AI Topic Generation</strong><br>
+            Uses <strong><?= htmlspecialchars($campaign->ai_provider) ?> (<?= htmlspecialchars($campaign->ai_model) ?>)</strong> to create diverse, SEO-optimized topics based on your:
+            <ul style="margin: 0.5rem 0 0 1.5rem; padding: 0;">
+                <li>Seed keywords: <strong><?= htmlspecialchars(implode(', ', json_decode($campaign->seed_keywords, true) ?? [])) ?></strong></li>
+                <li>Campaign goal: <strong><?= htmlspecialchars($campaign->goal) ?></strong></li>
+                <li>Niche: <strong><?= htmlspecialchars($campaign->niche) ?></strong></li>
+            </ul>
+            You'll be able to review and approve topics before queueing them.
         </div>
 
         <hr style="margin: 2rem 0;">
@@ -404,6 +431,80 @@ include __DIR__ . '/includes/header.php';
                 <input type="hidden" name="campaign_id" value="<?= $campaign->id ?>">
                 <button type="submit" name="delete_campaign" class="btn btn-danger" onclick="return confirm('Delete this campaign and all associated data? This cannot be undone!')">🗑 Delete Campaign</button>
             </form>
+        </div>
+    </div>
+<?php endif; ?>
+
+<?php if ($action === 'preview_topics'): ?>
+    <!-- Preview Generated Topics -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">🤖 AI-Generated Topics Preview</h2>
+            <a href="?action=view&id=<?= $_SESSION['preview_campaign_id'] ?>" class="btn btn-outline">Cancel</a>
+        </div>
+
+        <div class="alert alert-success">
+            <strong>✨ Topics generated successfully!</strong><br>
+            These topics were intelligently created by AI based on your campaign's seed keywords, niche, and goals.
+            Review them below and click "Queue All Topics" to proceed, or "Regenerate" to create new ones.
+        </div>
+
+        <?php
+        $previewTopics = $_SESSION['preview_topics'] ?? [];
+        $previewCampaignId = $_SESSION['preview_campaign_id'] ?? null;
+        $previewCampaign = $previewCampaignId ? $campaignManager->get($previewCampaignId) : null;
+        ?>
+
+        <?php if ($previewCampaign): ?>
+        <div style="background: #f9fafb; padding: 1rem; border-radius: 4px; margin-bottom: 1.5rem;">
+            <strong>Campaign:</strong> <?= htmlspecialchars($previewCampaign->name) ?> |
+            <strong>Niche:</strong> <?= htmlspecialchars($previewCampaign->niche) ?> |
+            <strong>Goal:</strong> <?= htmlspecialchars($previewCampaign->goal) ?> |
+            <strong>AI:</strong> <?= htmlspecialchars($previewCampaign->ai_provider) ?> (<?= htmlspecialchars($previewCampaign->ai_model) ?>)
+        </div>
+        <?php endif; ?>
+
+        <div style="margin-bottom: 1.5rem;">
+            <h3 style="margin-bottom: 1rem;">Generated Topics (<?= count($previewTopics) ?>)</h3>
+            <div style="display: grid; gap: 0.75rem;">
+                <?php foreach ($previewTopics as $index => $topic): ?>
+                <div style="display: flex; align-items: center; padding: 1rem; background: white; border: 1px solid #e5e7eb; border-radius: 4px;">
+                    <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; min-width: 35px; width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 1rem; font-weight: 600; font-size: 0.875rem;">
+                        <?= $index + 1 ?>
+                    </div>
+                    <div style="flex: 1; font-size: 1rem; color: #374151;">
+                        <?= htmlspecialchars($topic) ?>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 1rem; justify-content: space-between; align-items: center; padding-top: 1rem; border-top: 2px solid #e5e7eb;">
+            <div style="display: flex; gap: 0.5rem;">
+                <form method="POST" style="display: inline;">
+                    <input type="hidden" name="campaign_id" value="<?= $previewCampaignId ?>">
+                    <button type="submit" name="confirm_queue" class="btn btn-primary" style="font-size: 1rem; padding: 0.75rem 2rem;">
+                        ✅ Queue All Topics
+                    </button>
+                </form>
+
+                <form method="POST" style="display: inline;">
+                    <input type="hidden" name="campaign_id" value="<?= $previewCampaignId ?>">
+                    <input type="hidden" name="topic_count" value="<?= count($previewTopics) ?>">
+                    <button type="submit" name="regenerate_topics" class="btn btn-outline" style="font-size: 1rem;">
+                        🔄 Regenerate Different Topics
+                    </button>
+                </form>
+            </div>
+
+            <a href="?action=view&id=<?= $previewCampaignId ?>" class="btn btn-outline">Cancel</a>
+        </div>
+
+        <div class="alert alert-info" style="margin-top: 1.5rem;">
+            💡 <strong>What happens next?</strong><br>
+            When you queue these topics, they will be scheduled according to your campaign's publishing schedule.
+            The AI will then generate full articles for each topic when the cron job runs.
         </div>
     </div>
 <?php endif; ?>
