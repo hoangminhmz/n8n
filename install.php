@@ -125,6 +125,14 @@
 
             // Step 1: Requirements Check
             if (!isset($_GET['step']) || $_GET['step'] == 1):
+                // Try to create content directory if it doesn't exist
+                if (!is_dir(__DIR__ . '/content')) {
+                    @mkdir(__DIR__ . '/content', 0755, true);
+                    @mkdir(__DIR__ . '/content/uploads', 0755, true);
+                    @mkdir(__DIR__ . '/content/cache', 0755, true);
+                    @mkdir(__DIR__ . '/content/database', 0755, true);
+                }
+
                 $checks = [
                     'PHP Version (>= 8.0)' => version_compare(PHP_VERSION, '8.0.0', '>='),
                     'PDO Extension' => extension_loaded('pdo'),
@@ -148,13 +156,50 @@
                         </div>
                     <?php endforeach; ?>
 
+                    <?php if (!$allPassed): ?>
+                        <div class="alert alert-error" style="margin-top: 1.5rem;">
+                            <strong>⚠️ Permission Issues Detected</strong>
+                            <p style="margin: 0.5rem 0;">Please fix the requirements above before continuing.</p>
+
+                            <?php if (!is_writable(__DIR__ . '/content')): ?>
+                                <hr style="margin: 1rem 0; opacity: 0.3;">
+                                <p style="margin-bottom: 0.5rem;"><strong>How to fix "content/ Writable":</strong></p>
+
+                                <div style="background: #fff; padding: 1rem; border-radius: 0.5rem; margin: 0.5rem 0;">
+                                    <p style="margin-bottom: 0.5rem; color: #333;"><strong>Option 1 - Via FTP/File Manager:</strong></p>
+                                    <ol style="margin-left: 1.5rem; color: #333;">
+                                        <li>Right-click on the <code>content</code> folder</li>
+                                        <li>Select "File Permissions" or "CHMOD"</li>
+                                        <li>Set permissions to <strong>755</strong> or <strong>775</strong></li>
+                                        <li>Check "Apply to subdirectories"</li>
+                                        <li>Click Apply/OK</li>
+                                    </ol>
+                                </div>
+
+                                <div style="background: #fff; padding: 1rem; border-radius: 0.5rem; margin: 0.5rem 0;">
+                                    <p style="margin-bottom: 0.5rem; color: #333;"><strong>Option 2 - Via Terminal/SSH:</strong></p>
+                                    <pre style="background: #1f2937; color: #10b981; padding: 0.75rem; border-radius: 0.375rem; overflow-x: auto; font-size: 0.875rem; margin: 0.5rem 0;">chmod -R 755 content/</pre>
+                                    <p style="margin-top: 0.5rem; color: #666; font-size: 0.875rem;">Or if that doesn't work, try:</p>
+                                    <pre style="background: #1f2937; color: #10b981; padding: 0.75rem; border-radius: 0.375rem; overflow-x: auto; font-size: 0.875rem; margin: 0.5rem 0;">chmod -R 777 content/</pre>
+                                </div>
+
+                                <div style="background: #fff; padding: 1rem; border-radius: 0.5rem; margin: 0.5rem 0;">
+                                    <p style="margin-bottom: 0.5rem; color: #333;"><strong>Option 3 - Run Fix Script:</strong></p>
+                                    <p style="color: #666; font-size: 0.875rem;">Download and run: <a href="/fix-permissions.php" style="color: #667eea;">fix-permissions.php</a></p>
+                                </div>
+
+                                <p style="margin-top: 1rem; font-size: 0.875rem;">
+                                    <strong>After fixing permissions, refresh this page.</strong>
+                                </p>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+
                     <div class="btn-group">
                         <?php if ($allPassed): ?>
                             <a href="?step=2" class="btn btn-primary">Continue →</a>
                         <?php else: ?>
-                            <div class="alert alert-error">
-                                Please fix the requirements above before continuing.
-                            </div>
+                            <button onclick="location.reload()" class="btn btn-secondary">🔄 Check Again</button>
                         <?php endif; ?>
                     </div>
                 </div>

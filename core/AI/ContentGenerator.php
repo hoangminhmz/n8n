@@ -39,6 +39,12 @@ class ContentGenerator {
                 $this->aiProvider = new ClaudeProvider($apiKey, $model);
                 break;
 
+            case 'gemini':
+                require_once __DIR__ . '/GeminiProvider.php';
+                $apiKey = defined('GEMINI_API_KEY') ? GEMINI_API_KEY : '';
+                $this->aiProvider = new GeminiProvider($apiKey, $model);
+                break;
+
             default:
                 throw new Exception('Unsupported AI provider: ' . $provider);
         }

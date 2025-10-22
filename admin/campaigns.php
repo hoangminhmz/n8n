@@ -167,20 +167,60 @@ include __DIR__ . '/includes/header.php';
             <div class="form-row">
                 <div class="form-group">
                     <label>AI Provider *</label>
-                    <select name="ai_provider" required>
+                    <select name="ai_provider" id="ai_provider" required onchange="updateModelOptions()">
                         <option value="openai">OpenAI</option>
                         <option value="claude">Anthropic Claude</option>
+                        <option value="gemini">Google Gemini</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label>Model *</label>
-                    <select name="ai_model" required>
-                        <option value="gpt-4">GPT-4</option>
-                        <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-                        <option value="claude-3-sonnet-20240229">Claude 3 Sonnet</option>
+                    <select name="ai_model" id="ai_model" required>
+                        <optgroup label="OpenAI" class="models-openai">
+                            <option value="gpt-4">GPT-4 (Most capable, higher cost)</option>
+                            <option value="gpt-4-turbo">GPT-4 Turbo (Fast and capable)</option>
+                            <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Fast and economical)</option>
+                        </optgroup>
+                        <optgroup label="Claude" class="models-claude" style="display:none;">
+                            <option value="claude-3-opus-20240229">Claude 3 Opus (Most intelligent)</option>
+                            <option value="claude-3-sonnet-20240229">Claude 3 Sonnet (Balanced)</option>
+                            <option value="claude-3-haiku-20240307">Claude 3 Haiku (Fast)</option>
+                        </optgroup>
+                        <optgroup label="Gemini" class="models-gemini" style="display:none;">
+                            <option value="gemini-1.5-pro">Gemini 1.5 Pro (Most capable, multimodal)</option>
+                            <option value="gemini-1.5-flash">Gemini 1.5 Flash (Fast and efficient)</option>
+                            <option value="gemini-pro">Gemini Pro (Balanced performance)</option>
+                        </optgroup>
                     </select>
                 </div>
             </div>
+
+            <script>
+            function updateModelOptions() {
+                const provider = document.getElementById('ai_provider').value;
+                const modelSelect = document.getElementById('ai_model');
+                const optgroups = modelSelect.querySelectorAll('optgroup');
+
+                // Hide all optgroups
+                optgroups.forEach(group => {
+                    group.style.display = 'none';
+                    group.querySelectorAll('option').forEach(opt => opt.disabled = true);
+                });
+
+                // Show selected provider's optgroup
+                const activeGroup = modelSelect.querySelector('.models-' + provider);
+                if (activeGroup) {
+                    activeGroup.style.display = 'block';
+                    activeGroup.querySelectorAll('option').forEach(opt => opt.disabled = false);
+                    // Select first option in the active group
+                    const firstOption = activeGroup.querySelector('option');
+                    if (firstOption) firstOption.selected = true;
+                }
+            }
+
+            // Initialize on page load
+            document.addEventListener('DOMContentLoaded', updateModelOptions);
+            </script>
 
             <div class="form-row">
                 <div class="form-group">
