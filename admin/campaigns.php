@@ -224,9 +224,11 @@ include __DIR__ . '/includes/header.php';
                             <option value="claude-3-haiku-20240307">Claude 3 Haiku (Fast)</option>
                         </optgroup>
                         <optgroup label="Gemini" class="models-gemini" style="display:none;">
+                            <option value="gemini-2.5-flash" selected>Gemini 2.5 Flash (Newest, fastest, recommended)</option>
+                            <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash Experimental</option>
                             <option value="gemini-1.5-pro">Gemini 1.5 Pro (Most capable, multimodal)</option>
                             <option value="gemini-1.5-flash">Gemini 1.5 Flash (Fast and efficient)</option>
-                            <option value="gemini-pro">Gemini Pro (Balanced performance)</option>
+                            <option value="gemini-pro">Gemini Pro (Legacy)</option>
                         </optgroup>
                     </select>
                 </div>

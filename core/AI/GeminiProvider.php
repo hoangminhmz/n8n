@@ -12,13 +12,15 @@ class GeminiProvider extends AIProvider {
     /**
      * Constructor
      * @param string $api_key Google AI Studio API key
-     * @param string $model Model to use (default: gemini-pro)
+     * @param string $model Model to use (default: gemini-2.0-flash-exp)
      */
-    public function __construct($api_key, $model = 'gemini-pro') {
+    public function __construct($api_key, $model = 'gemini-2.0-flash-exp') {
         parent::__construct($api_key, $model);
 
         // Map model names to correct API names
         $modelMap = [
+            'gemini-2.5-flash' => 'gemini-2.5-flash',
+            'gemini-2.0-flash-exp' => 'gemini-2.0-flash-exp',
             'gemini-1.5-pro' => 'gemini-1.5-pro-latest',
             'gemini-1.5-flash' => 'gemini-flash-latest',
             'gemini-pro' => 'gemini-pro'
@@ -127,14 +129,16 @@ class GeminiProvider extends AIProvider {
      * @return float
      */
     public function estimateCost($tokens) {
-        // Gemini Pro pricing as of 2024
+        // Gemini pricing as of 2025
         $costs = [
-            'gemini-pro' => 0.0005,        // $0.50 per 1M characters (approx $0.0005 per 1K tokens)
-            'gemini-1.5-pro' => 0.00125,   // $1.25 per 1M tokens input
-            'gemini-1.5-flash' => 0.00025  // $0.25 per 1M tokens
+            'gemini-2.5-flash' => 0.00015,       // $0.15 per 1M tokens (newest, fastest)
+            'gemini-2.0-flash-exp' => 0.00010,   // Experimental, may be free/cheaper
+            'gemini-1.5-pro-latest' => 0.00125,  // $1.25 per 1M tokens
+            'gemini-flash-latest' => 0.00025,    // $0.25 per 1M tokens
+            'gemini-pro' => 0.0005               // Legacy model
         ];
 
-        $rate = $costs[$this->model] ?? $costs['gemini-pro'];
+        $rate = $costs[$this->model] ?? 0.0002;
         return ($tokens / 1000) * $rate;
     }
 
@@ -152,9 +156,11 @@ class GeminiProvider extends AIProvider {
      */
     public function getAvailableModels() {
         return [
+            'gemini-2.5-flash' => 'Gemini 2.5 Flash (Newest, fastest, recommended)',
+            'gemini-2.0-flash-exp' => 'Gemini 2.0 Flash Experimental',
             'gemini-1.5-pro' => 'Gemini 1.5 Pro (Most capable, multimodal)',
             'gemini-1.5-flash' => 'Gemini 1.5 Flash (Fast and efficient)',
-            'gemini-pro' => 'Gemini Pro (Balanced performance)'
+            'gemini-pro' => 'Gemini Pro (Legacy)'
         ];
     }
 }
