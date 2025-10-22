@@ -29,13 +29,19 @@ $recentPosts = $db->query("
 ");
 
 // Get AI usage this month
+if (DB_TYPE === 'sqlite') {
+    $monthStart = "DATE('now', 'start of month')";
+} else {
+    $monthStart = "DATE_FORMAT(NOW(), '%Y-%m-01 00:00:00')";
+}
+
 $aiUsageThisMonth = $db->queryOne("
     SELECT
         COUNT(*) as requests,
         SUM(tokens_used) as tokens,
         SUM(cost) as cost
     FROM ai_usage
-    WHERE timestamp >= DATE('now', 'start of month')
+    WHERE timestamp >= {$monthStart}
 ");
 
 include __DIR__ . '/includes/header.php';
