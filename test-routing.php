@@ -44,6 +44,7 @@ $testUris = [
     '/lite',
     '/lite/post/test-1',
     '/lite/category/tech',
+    '/lite/tag/news',
 ];
 
 foreach ($testUris as $testUri) {

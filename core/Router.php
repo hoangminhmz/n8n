@@ -90,10 +90,18 @@ class Router {
 
         // Remove base path if running in subdirectory
         if (defined('BASE_PATH') && BASE_PATH !== '/') {
-            $uri = substr($uri, strlen(BASE_PATH));
+            $basePath = rtrim(BASE_PATH, '/');
+            if (strpos($uri, $basePath) === 0) {
+                $uri = substr($uri, strlen($basePath));
+            }
         }
 
-        return $uri ?: '/';
+        // Ensure URI starts with /
+        if (empty($uri) || $uri[0] !== '/') {
+            $uri = '/' . $uri;
+        }
+
+        return $uri;
     }
 
     /**
