@@ -2,6 +2,8 @@
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
+    # RewriteBase will be auto-configured during installation
+    # If installed in subdirectory (e.g., /lite), change to: RewriteBase /lite/
     RewriteBase /
 
     # Force HTTPS (uncomment in production)
@@ -12,14 +14,20 @@
     RewriteRule ^config\.php$ - [F,L]
     RewriteRule ^content/database/ - [F,L]
     RewriteRule ^content/cache/ - [F,L]
-    RewriteRule ^install\.php$ - [F,L]
 
-    # Allow access to static files
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
+    # Allow admin panel access
+    RewriteCond %{REQUEST_URI} ^/admin [OR]
+    RewriteCond %{REQUEST_URI} ^.*/admin
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
+
+    # Allow access to static files and existing files
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
 
     # Route everything else through index.php
-    RewriteRule ^(.*)$ index.php?url=$1 [QSA,L]
+    RewriteRule ^(.*)$ index.php [QSA,L]
 </IfModule>
 
 # Security Headers
