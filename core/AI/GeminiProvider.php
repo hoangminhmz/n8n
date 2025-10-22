@@ -20,7 +20,7 @@ class GeminiProvider extends AIProvider {
         // Map model names to correct API names
         $modelMap = [
             'gemini-1.5-pro' => 'gemini-1.5-pro-latest',
-            'gemini-1.5-flash' => 'gemini-1.5-flash-latest',
+            'gemini-1.5-flash' => 'gemini-flash-latest',
             'gemini-pro' => 'gemini-pro'
         ];
 
