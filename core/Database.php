@@ -90,7 +90,8 @@ class Database {
     public function insert($table, $data) {
         try {
             $keys = array_keys($data);
-            $columns = implode(', ', $keys);
+            // Escape column names with backticks for MySQL reserved keywords
+            $columns = implode(', ', array_map(function($k) { return "`$k`"; }, $keys));
             $placeholders = ':' . implode(', :', $keys);
 
             $sql = "INSERT INTO $table ($columns) VALUES ($placeholders)";
@@ -116,7 +117,8 @@ class Database {
         try {
             $set = [];
             foreach (array_keys($data) as $key) {
-                $set[] = "$key = :$key";
+                // Escape column names with backticks for MySQL reserved keywords
+                $set[] = "`$key` = :$key";
             }
             $setClause = implode(', ', $set);
 
