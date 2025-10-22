@@ -36,14 +36,17 @@ class Template {
     // ========== Post Functions ==========
 
     public static function the_title() {
+        if (!self::$current_post) return '';
         return htmlspecialchars(self::$current_post->title ?? '');
     }
 
     public static function the_content() {
+        if (!self::$current_post) return '';
         return self::$current_post->content ?? '';
     }
 
     public static function the_excerpt($length = 160) {
+        if (!self::$current_post) return '';
         $text = strip_tags(self::$current_post->excerpt ?: self::$current_post->content ?? '');
         if (strlen($text) > $length) {
             return substr($text, 0, $length) . '...';
@@ -52,6 +55,9 @@ class Template {
     }
 
     public static function the_permalink() {
+        if (!self::$current_post) {
+            return SITE_URL;
+        }
         $slug = self::$current_post->slug ?? '';
         return SITE_URL . '/post/' . $slug;
     }
@@ -211,16 +217,25 @@ class Template {
     }
 
     public static function meta_description() {
+        if (!self::$current_post) {
+            return htmlspecialchars(self::getSetting('site_tagline', 'Just another LightBlog site'));
+        }
         $meta = self::$current_post->meta_description ?? '';
         return htmlspecialchars($meta ?: self::the_excerpt(155));
     }
 
     public static function seo_title() {
+        if (!self::$current_post) {
+            return htmlspecialchars(self::getSetting('site_name', 'My Blog'));
+        }
         $title = self::$current_post->seo_title ?? self::$current_post->title ?? '';
         return htmlspecialchars($title);
     }
 
     private static function get_keywords() {
+        if (!self::$current_post) {
+            return '';
+        }
         $keywords = json_decode(self::$current_post->keywords ?? '{}', true);
         return implode(', ', $keywords['primary'] ?? []);
     }
