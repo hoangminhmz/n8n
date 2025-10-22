@@ -21,14 +21,28 @@ try {
     $db = Database::getInstance();
     echo "<p style='color:green'>✓ Database loaded</p>";
 
+    // Load Cache
+    echo "<h2>Step 3: Loading Cache</h2>";
+    require_once __DIR__ . '/core/Cache.php';
+    echo "<p style='color:green'>✓ Cache class loaded</p>";
+
     // Load Template
-    echo "<h2>Step 3: Loading Template Class</h2>";
-    require_once __DIR__ . '/core/Template.php';
-    Template::init();
-    echo "<p style='color:green'>✓ Template class loaded and initialized</p>";
+    echo "<h2>Step 4: Loading Template Class</h2>";
+    try {
+        require_once __DIR__ . '/core/Template.php';
+        echo "<p style='color:green'>✓ Template class file loaded</p>";
+
+        Template::init();
+        echo "<p style='color:green'>✓ Template::init() completed successfully</p>";
+    } catch (Exception $e) {
+        echo "<p style='color:red'>✗ ERROR loading/initializing Template:</p>";
+        echo "<p style='color:red'>Message: " . htmlspecialchars($e->getMessage()) . "</p>";
+        echo "<p style='color:red'>File: " . $e->getFile() . " Line: " . $e->getLine() . "</p>";
+        throw $e;
+    }
 
     // Test each function individually
-    echo "<h2>Step 4: Testing Template Functions (No Post Set)</h2>";
+    echo "<h2>Step 5: Testing Template Functions (No Post Set)</h2>";
     echo "<div style='margin-left: 20px;'>";
 
     echo "<h3>Testing site_name()</h3>";
@@ -109,7 +123,7 @@ try {
     echo "</div>";
 
     // Check Template.php file for null checks
-    echo "<h2>Step 5: Checking Template.php for Null Safety</h2>";
+    echo "<h2>Step 6: Checking Template.php for Null Safety</h2>";
     $template_file = __DIR__ . '/core/Template.php';
     $template_content = file_get_contents($template_file);
 
