@@ -1,0 +1,292 @@
+<?php
+/**
+ * LightBlog CMS - Campaign Management
+ */
+
+require_once __DIR__ . '/../config.php';
+require_once SITE_PATH . '/core/Database.php';
+require_once SITE_PATH . '/core/Auth.php';
+require_once SITE_PATH . '/core/AutoBlog/Campaign.php';
+
+$pageTitle = 'AI Campaigns';
+$auth = new Auth();
+$auth->requireLogin();
+
+$campaignManager = new Campaign();
+$action = $_GET['action'] ?? 'list';
+$campaignId = $_GET['id'] ?? null;
+$message = '';
+
+// Handle actions
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['create_campaign'])) {
+        $seedKeywords = array_filter(array_map('trim', explode("\n", $_POST['seed_keywords'])));
+
+        $campaignId = $campaignManager->create([
+            'name' => $_POST['name'],
+            'niche' => $_POST['niche'],
+            'goal' => $_POST['goal'],
+            'seed_keywords' => $seedKeywords,
+            'target_count' => (int)$_POST['target_count'],
+            'posts_per_day' => (int)$_POST['posts_per_day'],
+            'content_types' => $_POST['content_types'] ?? ['article'],
+            'word_count_min' => (int)$_POST['word_count_min'],
+            'word_count_max' => (int)$_POST['word_count_max'],
+            'ai_provider' => $_POST['ai_provider'],
+            'ai_model' => $_POST['ai_model'],
+            'ai_temperature' => (float)$_POST['ai_temperature'],
+            'tone' => $_POST['tone'],
+            'language' => $_POST['language'],
+            'start_date' => $_POST['start_date'],
+            'publish_times' => array_filter(array_map('trim', explode(',', $_POST['publish_times'])))
+        ]);
+
+        $message = 'Campaign created successfully!';
+        $action = 'view';
+    } elseif (isset($_POST['generate_topics'])) {
+        $topics = $campaignManager->generateTopics($_POST['campaign_id'], (int)$_POST['topic_count']);
+        $queued = $campaignManager->queueTopics($_POST['campaign_id'], $topics);
+        $message = "Queued {$queued} topics for generation!";
+    }
+}
+
+// Get campaign data
+$campaign = $campaignId ? $campaignManager->get($campaignId) : null;
+$campaigns = $action === 'list' ? $campaignManager->getAll() : [];
+
+include __DIR__ . '/includes/header.php';
+?>
+
+<?php if ($message): ?>
+    <div class="alert alert-success"><?= htmlspecialchars($message) ?></div>
+<?php endif; ?>
+
+<?php if ($action === 'list'): ?>
+    <!-- Campaign List -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">All Campaigns</h2>
+            <a href="?action=new" class="btn btn-primary">+ New Campaign</a>
+        </div>
+
+        <?php if (empty($campaigns)): ?>
+            <div class="empty-state">
+                <div class="empty-state-icon">🤖</div>
+                <h3>No Campaigns Yet</h3>
+                <p>Create your first AI auto-blogging campaign</p>
+                <a href="?action=new" class="btn btn-primary">Create Campaign</a>
+            </div>
+        <?php else: ?>
+            <div style="display: grid; gap: 1.5rem;">
+                <?php foreach ($campaigns as $camp): ?>
+                    <?php $progress = $campaignManager->getProgress($camp->id); ?>
+                    <div class="card" style="background: var(--bg); border: 1px solid var(--border);">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                            <div>
+                                <h3 style="margin: 0 0 0.5rem 0;">
+                                    🤖 <?= htmlspecialchars($camp->name) ?>
+                                </h3>
+                                <p style="color: var(--text-light); margin: 0;">
+                                    <?= htmlspecialchars($camp->niche) ?> •
+                                    <?= $camp->ai_provider ?>/<?= $camp->ai_model ?> •
+                                    <?= $camp->posts_per_day ?> posts/day
+                                </p>
+                            </div>
+                            <span class="badge badge-<?= $camp->status === 'active' ? 'success' : 'warning' ?>">
+                                <?= $camp->status ?>
+                            </span>
+                        </div>
+
+                        <div class="progress" style="margin-bottom: 0.5rem;">
+                            <div class="progress-bar" style="width: <?= $progress['percentage'] ?>%"></div>
+                        </div>
+                        <p style="font-size: 0.875rem; color: var(--text-light); margin-bottom: 1rem;">
+                            <?= $progress['published'] ?> / <?= $progress['target'] ?> posts (<?= $progress['percentage'] ?>%)
+                        </p>
+
+                        <div style="display: flex; gap: 0.5rem;">
+                            <a href="?action=view&id=<?= $camp->id ?>" class="btn btn-sm btn-primary">Manage</a>
+                            <a href="/admin/queue.php?campaign=<?= $camp->id ?>" class="btn btn-sm btn-outline">View Queue</a>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+    </div>
+
+<?php elseif ($action === 'new'): ?>
+    <!-- Create Campaign -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Create New Campaign</h2>
+            <a href="?action=list" class="btn btn-outline">← Back</a>
+        </div>
+
+        <form method="POST">
+            <h3 style="margin-bottom: 1rem;">Campaign Basics</h3>
+
+            <div class="form-group">
+                <label>Campaign Name *</label>
+                <input type="text" name="name" required placeholder="e.g., Tech Reviews 2025">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Niche *</label>
+                    <input type="text" name="niche" required placeholder="e.g., Technology">
+                </div>
+                <div class="form-group">
+                    <label>Goal *</label>
+                    <select name="goal">
+                        <option value="traffic">Traffic</option>
+                        <option value="affiliate_sales">Affiliate Sales</option>
+                        <option value="authority">Authority Building</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Seed Keywords * (one per line)</label>
+                <textarea name="seed_keywords" rows="5" required placeholder="best laptop&#10;laptop review&#10;gaming laptop"></textarea>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Target Posts *</label>
+                    <input type="number" name="target_count" value="50" min="1" required>
+                </div>
+                <div class="form-group">
+                    <label>Posts Per Day *</label>
+                    <input type="number" name="posts_per_day" value="3" min="1" max="20" required>
+                </div>
+            </div>
+
+            <hr style="margin: 2rem 0;">
+            <h3 style="margin-bottom: 1rem;">AI Configuration</h3>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>AI Provider *</label>
+                    <select name="ai_provider" required>
+                        <option value="openai">OpenAI</option>
+                        <option value="claude">Anthropic Claude</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Model *</label>
+                    <select name="ai_model" required>
+                        <option value="gpt-4">GPT-4</option>
+                        <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                        <option value="claude-3-sonnet-20240229">Claude 3 Sonnet</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Tone *</label>
+                    <select name="tone">
+                        <option value="professional">Professional</option>
+                        <option value="casual">Casual</option>
+                        <option value="expert">Expert</option>
+                        <option value="friendly">Friendly</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Language *</label>
+                    <select name="language">
+                        <option value="en">English</option>
+                        <option value="es">Spanish</option>
+                        <option value="fr">French</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Word Count Min *</label>
+                    <input type="number" name="word_count_min" value="1500" required>
+                </div>
+                <div class="form-group">
+                    <label>Word Count Max *</label>
+                    <input type="number" name="word_count_max" value="2500" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Temperature (0-1) *</label>
+                <input type="number" name="ai_temperature" value="0.7" step="0.1" min="0" max="1" required>
+                <small>Higher = more creative, Lower = more focused</small>
+            </div>
+
+            <hr style="margin: 2rem 0;">
+            <h3 style="margin-bottom: 1rem;">Publishing Schedule</h3>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Start Date *</label>
+                    <input type="date" name="start_date" value="<?= date('Y-m-d') ?>" required>
+                </div>
+                <div class="form-group">
+                    <label>Publish Times * (comma-separated, 24h format)</label>
+                    <input type="text" name="publish_times" value="09:00, 14:00, 20:00" required>
+                    <small>e.g., 09:00, 14:00, 20:00</small>
+                </div>
+            </div>
+
+            <div style="margin-top: 2rem; display: flex; gap: 1rem;">
+                <button type="submit" name="create_campaign" class="btn btn-primary">Create Campaign</button>
+                <a href="?action=list" class="btn btn-outline">Cancel</a>
+            </div>
+        </form>
+    </div>
+
+<?php elseif ($action === 'view' && $campaign): ?>
+    <!-- View/Manage Campaign -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">🤖 <?= htmlspecialchars($campaign->name) ?></h2>
+            <a href="?action=list" class="btn btn-outline">← Back</a>
+        </div>
+
+        <?php $progress = $campaignManager->getProgress($campaign->id); ?>
+
+        <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+            <div>
+                <div class="stat-label">Progress</div>
+                <div class="stat-value"><?= $progress['percentage'] ?>%</div>
+            </div>
+            <div>
+                <div class="stat-label">Published</div>
+                <div class="stat-value"><?= $progress['published'] ?></div>
+            </div>
+            <div>
+                <div class="stat-label">Target</div>
+                <div class="stat-value"><?= $progress['target'] ?></div>
+            </div>
+        </div>
+
+        <div class="progress">
+            <div class="progress-bar" style="width: <?= $progress['percentage'] ?>%"></div>
+        </div>
+
+        <hr style="margin: 2rem 0;">
+
+        <h3 style="margin-bottom: 1rem;">Generate Topics</h3>
+        <form method="POST" style="display: flex; gap: 1rem; align-items: end;">
+            <input type="hidden" name="campaign_id" value="<?= $campaign->id ?>">
+            <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                <label>Number of Topics</label>
+                <input type="number" name="topic_count" value="10" min="1" max="50">
+            </div>
+            <button type="submit" name="generate_topics" class="btn btn-primary">Generate & Queue Topics</button>
+        </form>
+
+        <div class="alert alert-info" style="margin-top: 1rem;">
+            💡 Topics will be automatically queued for AI generation and scheduled according to your campaign settings.
+            Make sure you have set up your AI API keys in <a href="/admin/settings.php">Settings</a>.
+        </div>
+    </div>
+<?php endif; ?>
+
+<?php include __DIR__ . '/includes/footer.php'; ?>
