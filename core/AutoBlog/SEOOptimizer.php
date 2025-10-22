@@ -31,11 +31,14 @@ class SEOOptimizer {
      * Add internal links to content
      */
     private function addInternalLinks($content, $maxLinks = 3) {
+        // Get random function based on database type
+        $randomFunc = (defined('DB_TYPE') && DB_TYPE === 'mysql') ? 'RAND()' : 'RANDOM()';
+
         // Get related posts
         $posts = $this->db->query("
             SELECT title, slug FROM posts
             WHERE status = 'published'
-            ORDER BY RANDOM()
+            ORDER BY {$randomFunc}
             LIMIT ?
         ", [$maxLinks]);
 
