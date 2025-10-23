@@ -25,7 +25,9 @@ try {
     // Extract focus keyword
     function extractFocusKeyword($title) {
         $commonWords = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'how', 'what', 'when', 'where', 'why', 'who'];
-        $words = preg_split('/\s+/', strtolower($title));
+        // Remove punctuation first
+        $cleanTitle = preg_replace('/[^\w\s]/', '', $title);
+        $words = preg_split('/\s+/', strtolower($cleanTitle));
         $keywords = array_filter($words, function($word) use ($commonWords) {
             return strlen($word) > 3 && !in_array($word, $commonWords);
         });
@@ -111,7 +113,7 @@ try {
     }
 
     echo "<h2>Step 5: Build Canonical URL</h2>";
-    $canonicalUrl = $postUrl ?: (SITE_URL . BASE_PATH . 'post/' . sanitizeSlug($title));
+    $canonicalUrl = $postUrl ?: (SITE_URL . '/post/' . sanitizeSlug($title));
     echo "Canonical URL: <strong>$canonicalUrl</strong><br><br>";
 
     echo "<h2>Final JSON Response:</h2>";

@@ -68,8 +68,8 @@ try {
         $faqData = json_encode($faqSchema, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
-    // Build canonical URL
-    $canonicalUrl = $postUrl ?: (SITE_URL . BASE_PATH . 'post/' . sanitizeSlug($title));
+    // Build canonical URL (SITE_URL already includes /lite, don't duplicate)
+    $canonicalUrl = $postUrl ?: (SITE_URL . '/post/' . sanitizeSlug($title));
 
     // Return all SEO fields
     echo json_encode([
@@ -143,12 +143,14 @@ function extractFocusKeyword($title) {
     // Remove common words
     $commonWords = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'how', 'what', 'when', 'where', 'why', 'who'];
 
-    $words = preg_split('/\s+/', strtolower($title));
+    // Remove punctuation and split into words
+    $cleanTitle = preg_replace('/[^\w\s]/', '', $title);
+    $words = preg_split('/\s+/', strtolower($cleanTitle));
     $keywords = array_filter($words, function($word) use ($commonWords) {
         return strlen($word) > 3 && !in_array($word, $commonWords);
     });
 
-    // Return first 2-3 meaningful words
+    // Return first 2 meaningful words
     return implode(' ', array_slice($keywords, 0, 2));
 }
 
