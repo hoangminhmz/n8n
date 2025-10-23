@@ -3,19 +3,29 @@
  * AJAX Endpoint - Auto-fill SEO fields with AI
  */
 
-require_once __DIR__ . '/../config.php';
-require_once SITE_PATH . '/core/Database.php';
-require_once SITE_PATH . '/core/Auth.php';
-require_once SITE_PATH . '/core/SEO/SEOAnalyzer.php';
-require_once SITE_PATH . '/core/SEO/TOCGenerator.php';
-require_once SITE_PATH . '/core/SEO/FAQExtractor.php';
-
-header('Content-Type: application/json');
-
-$auth = new Auth();
-$auth->requireLogin();
+// Prevent any output before JSON
+ob_start();
 
 try {
+    require_once __DIR__ . '/../config.php';
+    require_once SITE_PATH . '/core/Database.php';
+    require_once SITE_PATH . '/core/Auth.php';
+    require_once SITE_PATH . '/core/SEO/SEOAnalyzer.php';
+    require_once SITE_PATH . '/core/SEO/TOCGenerator.php';
+    require_once SITE_PATH . '/core/SEO/FAQExtractor.php';
+
+    // Clear any output from includes
+    ob_clean();
+
+    header('Content-Type: application/json');
+
+    // Check authentication (session already started in config.php)
+    if (!isset($_SESSION['user_id'])) {
+        throw new Exception('Not authenticated');
+    }
+
+    // Get database instance
+    $db = Database::getInstance();
     // Get input
     $input = json_decode(file_get_contents('php://input'), true);
     $title = $input['title'] ?? '';
@@ -95,12 +105,36 @@ try {
     ]);
 
 } catch (Exception $e) {
+    // Clear any output
+    ob_clean();
+
+    // Log the error
+    error_log("AJAX Auto-fill SEO Error: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+
+    header('Content-Type: application/json');
     http_response_code(500);
     echo json_encode([
         'success' => false,
-        'error' => $e->getMessage()
+        'error' => $e->getMessage(),
+        'trace' => SITE_DEBUG ? $e->getTraceAsString() : null
+    ]);
+} catch (Error $e) {
+    // Catch PHP errors too
+    ob_clean();
+
+    error_log("AJAX Auto-fill SEO Fatal Error: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+
+    header('Content-Type: application/json');
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'error' => 'Fatal error: ' . $e->getMessage(),
+        'trace' => SITE_DEBUG ? $e->getTraceAsString() : null
     ]);
 }
+
+// End output buffering
+ob_end_flush();
 
 /**
  * Extract focus keyword from title

@@ -632,9 +632,25 @@ include __DIR__ . '/includes/header.php';
                     })
                 });
 
-                const result = await response.json();
+                // Check if response is OK
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Server error response:', errorText);
+                    throw new Error('Server error: ' + response.status);
+                }
+
+                // Try to parse JSON
+                let result;
+                try {
+                    result = await response.json();
+                } catch (jsonError) {
+                    const responseText = await response.text();
+                    console.error('Invalid JSON response:', responseText);
+                    throw new Error('Invalid server response. Check browser console for details.');
+                }
 
                 if (!result.success) {
+                    console.error('API error:', result);
                     throw new Error(result.error || 'Failed to generate SEO data');
                 }
 
