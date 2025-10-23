@@ -47,6 +47,10 @@ $basePath = defined('BASE_PATH') ? BASE_PATH : '/';
                     <span class="nav-icon">📝</span>
                     <span>Posts</span>
                 </a>
+                <a href="<?= $basePath ?>admin/pages.php" class="nav-item <?= $currentPage === 'pages' ? 'active' : '' ?>">
+                    <span class="nav-icon">📄</span>
+                    <span>Pages</span>
+                </a>
                 <a href="<?= $basePath ?>admin/categories.php" class="nav-item <?= $currentPage === 'categories' ? 'active' : '' ?>">
                     <span class="nav-icon">📁</span>
                     <span>Categories</span>

@@ -105,6 +105,51 @@ $router->add('#^/tag/([a-z0-9-]+)$#', function($slug) use ($db) {
     include SITE_PATH . '/themes/' . CURRENT_THEME . '/archive.php';
 });
 
+// Generic slug route - checks pages first, then posts
+// NOTE: This must be last so specific routes above are matched first
+$router->add('#^/([a-z0-9-]+)$#', function($slug) use ($db) {
+    // Try to find a page first (pages have priority over posts)
+    $page = $db->queryOne("SELECT * FROM pages WHERE slug = ? AND status = 'published'", [$slug]);
+
+    if ($page) {
+        // Page found - increment view count
+        $db->query("UPDATE pages SET views = views + 1 WHERE id = ?", [$page->id]);
+
+        // Set current page for template functions
+        Template::setCurrentPage($page);
+
+        // Determine which template to use
+        $templateFile = 'page.php';
+        if ($page->template && $page->template !== 'default') {
+            $customTemplate = SITE_PATH . '/themes/' . CURRENT_THEME . '/page-' . $page->template . '.php';
+            if (file_exists($customTemplate)) {
+                $templateFile = 'page-' . $page->template . '.php';
+            }
+        }
+
+        include SITE_PATH . '/themes/' . CURRENT_THEME . '/' . $templateFile;
+        return;
+    }
+
+    // No page found, try post (for backward compatibility with /post/slug URLs)
+    $post = $db->queryOne("SELECT * FROM posts WHERE slug = ? AND status = 'published'", [$slug]);
+
+    if ($post) {
+        // Post found - increment view count
+        $db->query("UPDATE posts SET views = views + 1 WHERE id = ?", [$post->id]);
+
+        // Set current post for template functions
+        Template::setCurrentPost($post);
+
+        include SITE_PATH . '/themes/' . CURRENT_THEME . '/single.php';
+        return;
+    }
+
+    // Neither page nor post found - 404
+    http_response_code(404);
+    include SITE_PATH . '/themes/' . CURRENT_THEME . '/404.php';
+});
+
 // Dispatch request
 $uri = Router::getCurrentUri();
 $router->dispatch($uri);

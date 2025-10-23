@@ -6,6 +6,7 @@
 
 class Template {
     private static $current_post;
+    private static $current_page;
     private static $db;
     private static $cache;
 
@@ -23,6 +24,9 @@ class Template {
      */
     public static function setCurrentPost($post) {
         self::$current_post = $post;
+        // Make globally accessible for theme templates
+        global $currentPost;
+        $currentPost = $post;
     }
 
     /**
@@ -31,6 +35,42 @@ class Template {
      */
     public static function getCurrentPost() {
         return self::$current_post;
+    }
+
+    /**
+     * Set current page
+     * @param object $page Page object
+     */
+    public static function setCurrentPage($page) {
+        self::$current_page = $page;
+        // Make globally accessible for theme templates
+        global $page;
+        $page = $page;
+    }
+
+    /**
+     * Get current page
+     * @return object|null
+     */
+    public static function getCurrentPage() {
+        return self::$current_page;
+    }
+
+    /**
+     * Check if current page is a static page (not a post)
+     * @return bool
+     */
+    public static function is_page() {
+        return !empty(self::$current_page);
+    }
+
+    /**
+     * Check if current page is a specific page by slug
+     * @param string $slug Page slug
+     * @return bool
+     */
+    public static function is_page_slug($slug) {
+        return self::$current_page && self::$current_page->slug === $slug;
     }
 
     // ========== Post Functions ==========
@@ -355,3 +395,6 @@ function wp_head() { Template::wp_head(); }
 function asset_url($path) { return Template::asset_url($path); }
 function theme_url($path = '') { return Template::theme_url($path); }
 function excerpt($text, $length = 100) { return Template::excerpt($text, $length); }
+function is_page() { return Template::is_page(); }
+function is_page_slug($slug) { return Template::is_page_slug($slug); }
+function get_current_page() { return Template::getCurrentPage(); }
