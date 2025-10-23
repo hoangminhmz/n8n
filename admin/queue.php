@@ -13,6 +13,76 @@ $auth->requireLogin();
 
 $db = Database::getInstance();
 $campaignFilter = $_GET['campaign'] ?? null;
+$message = '';
+$messageType = 'success';
+
+// Handle bulk actions
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['bulk_action']) && !empty($_POST['selected_items'])) {
+        $action = $_POST['bulk_action'];
+        $items = $_POST['selected_items'];
+        $count = 0;
+
+        switch ($action) {
+            case 'delete':
+                foreach ($items as $id) {
+                    $db->delete('ai_queue', 'id = ?', [(int)$id]);
+                    $count++;
+                }
+                $message = "✅ Deleted {$count} queue item(s)";
+                break;
+
+            case 'process':
+                foreach ($items as $id) {
+                    $item = $db->queryOne("SELECT * FROM ai_queue WHERE id = ?", [(int)$id]);
+                    if ($item && ($item->status === 'pending' || $item->status === 'failed')) {
+                        $db->update('ai_queue', [
+                            'status' => 'pending',
+                            'scheduled_for' => date('Y-m-d H:i:s'),
+                            'priority' => 10,
+                            'error_message' => null
+                        ], 'id = :id', ['id' => (int)$id]);
+                        $count++;
+                    }
+                }
+                $message = "✅ Queued {$count} item(s) for immediate processing. <a href='" . BASE_PATH . "process-queue.php' target='_blank'>Click here to process now</a>";
+                break;
+
+            case 'retry':
+                foreach ($items as $id) {
+                    $item = $db->queryOne("SELECT * FROM ai_queue WHERE id = ?", [(int)$id]);
+                    if ($item && $item->status === 'failed') {
+                        $db->update('ai_queue', [
+                            'status' => 'pending',
+                            'scheduled_for' => date('Y-m-d H:i:s'),
+                            'error_message' => null
+                        ], 'id = :id', ['id' => (int)$id]);
+                        $count++;
+                    }
+                }
+                $message = "✅ Retrying {$count} failed item(s)";
+                break;
+        }
+    } elseif (isset($_POST['delete_item'])) {
+        $db->delete('ai_queue', 'id = ?', [(int)$_POST['item_id']]);
+        $message = "✅ Queue item deleted";
+    } elseif (isset($_POST['process_item'])) {
+        $db->update('ai_queue', [
+            'status' => 'pending',
+            'scheduled_for' => date('Y-m-d H:i:s'),
+            'priority' => 10,
+            'error_message' => null
+        ], 'id = :id', ['id' => (int)$_POST['item_id']]);
+        $message = "✅ Item queued for immediate processing. <a href='" . BASE_PATH . "process-queue.php' target='_blank'>Click here to process now</a>";
+    } elseif (isset($_POST['retry_item'])) {
+        $db->update('ai_queue', [
+            'status' => 'pending',
+            'scheduled_for' => date('Y-m-d H:i:s'),
+            'error_message' => null
+        ], 'id = :id', ['id' => (int)$_POST['item_id']]);
+        $message = "✅ Item retry scheduled";
+    }
+}
 
 // Build query
 $query = "SELECT q.*, c.name as campaign_name FROM ai_queue q
@@ -41,6 +111,12 @@ $stats = $db->queryOne("
 
 include __DIR__ . '/includes/header.php';
 ?>
+
+<?php if ($message): ?>
+    <div class="alert alert-<?= $messageType ?>">
+        <?= $message ?>
+    </div>
+<?php endif; ?>
 
 <div class="stats-grid" style="grid-template-columns: repeat(5, 1fr);">
     <div class="stat-card">
@@ -102,61 +178,149 @@ include __DIR__ . '/includes/header.php';
             <a href="/admin/campaigns.php" class="btn btn-primary">Go to Campaigns</a>
         </div>
     <?php else: ?>
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Topic</th>
-                        <th>Campaign</th>
-                        <th>Status</th>
-                        <th>Priority</th>
-                        <th>Scheduled</th>
-                        <th>Created</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($queueItems as $item): ?>
+        <form method="POST" id="bulkForm">
+            <!-- Bulk Actions Bar -->
+            <div style="display: flex; gap: 1rem; align-items: center; padding: 1rem; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
+                <select name="bulk_action" id="bulkAction" class="form-control" style="width: 200px;">
+                    <option value="">Bulk Actions</option>
+                    <option value="delete">Delete</option>
+                    <option value="process">Process Now</option>
+                    <option value="retry">Retry Failed</option>
+                </select>
+                <button type="submit" class="btn btn-primary" onclick="return confirmBulkAction()">Apply</button>
+                <span id="selectedCount" style="color: #6b7280; font-size: 0.875rem;"></span>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
                         <tr>
-                            <td>
-                                <strong><?= htmlspecialchars($item->topic) ?></strong>
-                                <?php if ($item->error_message): ?>
-                                    <br><small style="color: var(--danger);"><?= htmlspecialchars($item->error_message) ?></small>
-                                <?php endif; ?>
-                            </td>
-                            <td><?= htmlspecialchars($item->campaign_name ?? 'N/A') ?></td>
-                            <td>
-                                <?php
-                                $statusColors = [
-                                    'pending' => 'warning',
-                                    'processing' => 'info',
-                                    'completed' => 'success',
-                                    'failed' => 'danger'
-                                ];
-                                ?>
-                                <span class="badge badge-<?= $statusColors[$item->status] ?? 'info' ?>">
-                                    <?= $item->status ?>
-                                </span>
-                            </td>
-                            <td><?= $item->priority ?></td>
-                            <td>
-                                <?= $item->scheduled_for ? date('M j, H:i', strtotime($item->scheduled_for)) : 'ASAP' ?>
-                            </td>
-                            <td><?= date('M j, Y', strtotime($item->created_at)) ?></td>
-                            <td>
-                                <?php if ($item->generated_post_id): ?>
-                                    <a href="/admin/posts.php?action=edit&id=<?= $item->generated_post_id ?>" class="btn btn-sm btn-outline">View Post</a>
-                                <?php elseif ($item->status === 'failed'): ?>
-                                    <span style="color: var(--text-light);">Failed</span>
-                                <?php elseif ($item->status === 'pending'): ?>
-                                    <span style="color: var(--text-light);">Waiting...</span>
-                                <?php endif; ?>
-                            </td>
+                            <th style="width: 40px;">
+                                <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)">
+                            </th>
+                            <th>Topic</th>
+                            <th>Campaign</th>
+                            <th>Status</th>
+                            <th>Priority</th>
+                            <th>Scheduled</th>
+                            <th>Created</th>
+                            <th style="width: 200px;">Actions</th>
                         </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($queueItems as $item): ?>
+                            <tr>
+                                <td>
+                                    <input type="checkbox" name="selected_items[]" value="<?= $item->id ?>" class="item-checkbox" onchange="updateSelectedCount()">
+                                </td>
+                                <td>
+                                    <strong><?= htmlspecialchars($item->topic) ?></strong>
+                                    <?php if ($item->error_message): ?>
+                                        <br><small style="color: var(--danger);"><?= htmlspecialchars($item->error_message) ?></small>
+                                    <?php endif; ?>
+                                </td>
+                                <td><?= htmlspecialchars($item->campaign_name ?? 'N/A') ?></td>
+                                <td>
+                                    <?php
+                                    $statusColors = [
+                                        'pending' => 'warning',
+                                        'processing' => 'info',
+                                        'completed' => 'success',
+                                        'failed' => 'danger'
+                                    ];
+                                    ?>
+                                    <span class="badge badge-<?= $statusColors[$item->status] ?? 'info' ?>">
+                                        <?= $item->status ?>
+                                    </span>
+                                </td>
+                                <td><?= $item->priority ?></td>
+                                <td>
+                                    <?= $item->scheduled_for ? date('M j, H:i', strtotime($item->scheduled_for)) : 'ASAP' ?>
+                                </td>
+                                <td><?= date('M j, Y', strtotime($item->created_at)) ?></td>
+                                <td>
+                                    <div style="display: flex; gap: 0.25rem; flex-wrap: wrap;">
+                                        <?php if ($item->generated_post_id): ?>
+                                            <a href="<?= BASE_PATH ?>admin/posts.php?action=edit&id=<?= $item->generated_post_id ?>" class="btn btn-sm btn-outline">📄 View Post</a>
+                                        <?php elseif ($item->status === 'failed'): ?>
+                                            <form method="POST" style="display: inline; margin: 0;">
+                                                <input type="hidden" name="item_id" value="<?= $item->id ?>">
+                                                <button type="submit" name="retry_item" class="btn btn-sm btn-warning" title="Retry">🔄 Retry</button>
+                                            </form>
+                                        <?php elseif ($item->status === 'pending'): ?>
+                                            <form method="POST" style="display: inline; margin: 0;">
+                                                <input type="hidden" name="item_id" value="<?= $item->id ?>">
+                                                <button type="submit" name="process_item" class="btn btn-sm btn-success" title="Process Now">⚡ Process</button>
+                                            </form>
+                                        <?php endif; ?>
+
+                                        <?php if ($item->status !== 'processing'): ?>
+                                            <form method="POST" style="display: inline; margin: 0;">
+                                                <input type="hidden" name="item_id" value="<?= $item->id ?>">
+                                                <button type="submit" name="delete_item" class="btn btn-sm btn-danger" onclick="return confirm('Delete this queue item?')" title="Delete">🗑</button>
+                                            </form>
+                                        <?php endif; ?>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </form>
+
+        <script>
+            function toggleSelectAll(checkbox) {
+                const checkboxes = document.querySelectorAll('.item-checkbox');
+                checkboxes.forEach(cb => cb.checked = checkbox.checked);
+                updateSelectedCount();
+            }
+
+            function updateSelectedCount() {
+                const checked = document.querySelectorAll('.item-checkbox:checked').length;
+                const total = document.querySelectorAll('.item-checkbox').length;
+                const countEl = document.getElementById('selectedCount');
+
+                if (checked > 0) {
+                    countEl.textContent = `${checked} of ${total} selected`;
+                    countEl.style.fontWeight = '600';
+                    countEl.style.color = '#3b82f6';
+                } else {
+                    countEl.textContent = '';
+                }
+
+                // Update select all checkbox state
+                const selectAllCheckbox = document.getElementById('selectAll');
+                selectAllCheckbox.checked = checked === total && total > 0;
+                selectAllCheckbox.indeterminate = checked > 0 && checked < total;
+            }
+
+            function confirmBulkAction() {
+                const action = document.getElementById('bulkAction').value;
+                const checked = document.querySelectorAll('.item-checkbox:checked').length;
+
+                if (!action) {
+                    alert('Please select an action from the dropdown.');
+                    return false;
+                }
+
+                if (checked === 0) {
+                    alert('Please select at least one item.');
+                    return false;
+                }
+
+                const actionNames = {
+                    'delete': 'delete',
+                    'process': 'process now',
+                    'retry': 'retry'
+                };
+
+                return confirm(`Are you sure you want to ${actionNames[action]} ${checked} item(s)?`);
+            }
+
+            // Initialize count on page load
+            document.addEventListener('DOMContentLoaded', updateSelectedCount);
+        </script>
     <?php endif; ?>
 </div>
 
