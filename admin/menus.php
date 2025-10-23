@@ -380,19 +380,23 @@ include __DIR__ . '/includes/header.php';
                         <p>No menu items yet. Add items from the left sidebar.</p>
                     <?php else: ?>
                         <?php foreach ($menuItems as $item): ?>
-                            <div class="menu-item-block <?= $item->parent_id > 0 ? 'child' : '' ?>" data-item-id="<?= $item->id ?>">
+                            <div class="menu-item-block <?= $item->parent_id > 0 ? 'child' : '' ?>"
+                                 data-item-id="<?= $item->id ?>"
+                                 data-type="<?= htmlspecialchars($item->type) ?>"
+                                 data-object-id="<?= $item->object_id ?? '' ?>"
+                                 data-custom-url="<?= htmlspecialchars($item->custom_url ?? '') ?>"
+                                 data-title="<?= htmlspecialchars($item->title) ?>"
+                                 data-css-classes="<?= htmlspecialchars($item->css_classes ?? '') ?>"
+                                 data-target="<?= htmlspecialchars($item->target ?? '_self') ?>"
+                                 data-parent-id="<?= $item->parent_id ?? 0 ?>"
+                                 data-menu-order="<?= $item->menu_order ?? 0 ?>">
                                 <div class="menu-item-header">
                                     <div>
                                         <span class="menu-item-title"><?= htmlspecialchars($item->title) ?></span>
                                         <span class="menu-item-type"><?= $item->type ?></span>
                                     </div>
                                     <div class="menu-item-actions">
-                                        <button type="button" class="btn btn-sm btn-outline" onclick="editMenuItem(<?= $item->id ?>)">✏️</button>
-                                        <form method="POST" style="display: inline; margin: 0;" onsubmit="return confirm('Remove this item?');">
-                                            <input type="hidden" name="menu_id" value="<?= $currentMenu->id ?>">
-                                            <input type="hidden" name="item_id" value="<?= $item->id ?>">
-                                            <button type="submit" name="delete_menu_item" class="btn btn-sm btn-danger">×</button>
-                                        </form>
+                                        <button type="button" class="btn btn-sm btn-danger" onclick="removeMenuItemBlock(this)">×</button>
                                     </div>
                                 </div>
                             </div>
@@ -442,22 +446,31 @@ function addSelectedItems(type) {
         itemBlock.innerHTML = `
             <div class="menu-item-header">
                 <div>
-                    <span class="menu-item-title">${title}</span>
+                    <span class="menu-item-title">${escapeHtml(title)}</span>
                     <span class="menu-item-type">${type}</span>
                 </div>
                 <div class="menu-item-actions">
-                    <button type="button" class="btn btn-sm btn-outline" onclick="editMenuItem(this)">✏️</button>
                     <button type="button" class="btn btn-sm btn-danger" onclick="removeMenuItem(this)">×</button>
                 </div>
             </div>
         `;
+        // Set data attributes
         itemBlock.dataset.type = type;
         itemBlock.dataset.objectId = id;
         itemBlock.dataset.title = title;
+        itemBlock.dataset.cssClasses = '';
+        itemBlock.dataset.target = '_self';
+        itemBlock.dataset.parentId = '0';
 
         structure.appendChild(itemBlock);
         checkbox.checked = false;
     });
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 function addCustomLink() {
@@ -480,18 +493,22 @@ function addCustomLink() {
     itemBlock.innerHTML = `
         <div class="menu-item-header">
             <div>
-                <span class="menu-item-title">${title}</span>
+                <span class="menu-item-title">${escapeHtml(title)}</span>
                 <span class="menu-item-type">custom</span>
             </div>
             <div class="menu-item-actions">
-                <button type="button" class="btn btn-sm btn-outline" onclick="editMenuItem(this)">✏️</button>
                 <button type="button" class="btn btn-sm btn-danger" onclick="removeMenuItem(this)">×</button>
             </div>
         </div>
     `;
+    // Set data attributes
     itemBlock.dataset.type = 'custom';
     itemBlock.dataset.customUrl = url;
     itemBlock.dataset.title = title;
+    itemBlock.dataset.cssClasses = '';
+    itemBlock.dataset.target = '_self';
+    itemBlock.dataset.parentId = '0';
+    itemBlock.dataset.objectId = '';
 
     structure.appendChild(itemBlock);
 
@@ -512,25 +529,47 @@ function removeMenuItem(button) {
     }
 }
 
+// Alternative function name for existing items
+function removeMenuItemBlock(button) {
+    removeMenuItem(button);
+}
+
 // Serialize menu items before form submit
-document.getElementById('menuForm')?.addEventListener('submit', function(e) {
-    const items = [];
-    const blocks = document.querySelectorAll('.menu-item-block');
+document.addEventListener('DOMContentLoaded', function() {
+    const menuForm = document.getElementById('menuForm');
+    if (!menuForm) return;
 
-    blocks.forEach((block, index) => {
-        items.push({
-            type: block.dataset.type,
-            object_id: block.dataset.objectId || null,
-            custom_url: block.dataset.customUrl || null,
-            title: block.dataset.title,
-            css_classes: block.dataset.cssClasses || '',
-            target: block.dataset.target || '_self',
-            parent_id: 0,
-            menu_order: index
+    menuForm.addEventListener('submit', function(e) {
+        console.log('Form submitting...');
+        const items = [];
+        const blocks = document.querySelectorAll('#menuStructure .menu-item-block');
+
+        console.log('Found blocks:', blocks.length);
+
+        blocks.forEach((block, index) => {
+            const itemData = {
+                type: block.dataset.type,
+                object_id: block.dataset.objectId || null,
+                custom_url: block.dataset.customUrl || null,
+                title: block.dataset.title,
+                css_classes: block.dataset.cssClasses || '',
+                target: block.dataset.target || '_self',
+                parent_id: block.dataset.parentId || 0,
+                menu_order: index
+            };
+
+            console.log('Item:', itemData);
+            items.push(itemData);
         });
-    });
 
-    document.getElementById('menuItemsData').value = JSON.stringify(items);
+        const jsonData = JSON.stringify(items);
+        console.log('Serialized data:', jsonData);
+
+        document.getElementById('menuItemsData').value = jsonData;
+
+        // Let form submit naturally
+        return true;
+    });
 });
 </script>
 
