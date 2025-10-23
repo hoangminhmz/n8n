@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test AJAX Auto-fill SEO</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; background: #f9f9f9; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+        pre { background: #fff; padding: 10px; border: 1px solid #ccc; overflow-x: auto; }
+        .error { color: red; }
+        .success { color: green; }
+    </style>
+</head>
+<body>
+    <h1>Test AJAX Auto-fill SEO Endpoint</h1>
+
+    <div class="section">
+        <h2>Test Data</h2>
+        <p><strong>Title:</strong> The Future of Rest: What Advanced Materials and IoT Bring to the Best Mattress Designs</p>
+        <p><strong>Content:</strong> Test article about mattresses...</p>
+    </div>
+
+    <div class="section">
+        <button onclick="testAjax()">🧪 Test AJAX Endpoint</button>
+    </div>
+
+    <div id="result" class="section" style="display:none;">
+        <h2>Response:</h2>
+        <div id="status"></div>
+        <h3>Headers:</h3>
+        <pre id="headers"></pre>
+        <h3>Response Body:</h3>
+        <pre id="body"></pre>
+        <h3>Parsed JSON:</h3>
+        <pre id="json"></pre>
+    </div>
+
+    <div id="error" class="section error" style="display:none;">
+        <h2>Error:</h2>
+        <pre id="errorMsg"></pre>
+    </div>
+
+    <script>
+        async function testAjax() {
+            const resultDiv = document.getElementById('result');
+            const errorDiv = document.getElementById('error');
+
+            // Hide previous results
+            resultDiv.style.display = 'none';
+            errorDiv.style.display = 'none';
+
+            const testData = {
+                title: 'The Future of Rest: What Advanced Materials and IoT Bring to the Best Mattress Designs',
+                content: '<p>This is a test article about mattresses. It talks about advanced materials like memory foam and gel-infused layers.</p><p>IoT technology is revolutionizing how we sleep, with smart mattresses that track sleep patterns.</p><p>Modern mattresses combine comfort with technology for better sleep quality.</p>',
+                postUrl: ''
+            };
+
+            try {
+                console.log('Sending AJAX request...');
+                console.log('Data:', testData);
+
+                const response = await fetch('ajax-autofill-seo.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'same-origin', // Include cookies/session
+                    body: JSON.stringify(testData)
+                });
+
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+
+                // Show result section
+                resultDiv.style.display = 'block';
+
+                // Display status
+                document.getElementById('status').innerHTML =
+                    `<strong>Status:</strong> ${response.status} ${response.statusText}`;
+
+                // Display headers
+                let headersText = '';
+                response.headers.forEach((value, key) => {
+                    headersText += `${key}: ${value}\n`;
+                });
+                document.getElementById('headers').textContent = headersText || 'No headers';
+
+                // Get response text
+                const responseText = await response.text();
+                console.log('Response body:', responseText);
+
+                document.getElementById('body').textContent = responseText || '(empty)';
+
+                // Try to parse JSON
+                if (responseText) {
+                    try {
+                        const jsonData = JSON.parse(responseText);
+                        document.getElementById('json').textContent =
+                            JSON.stringify(jsonData, null, 2);
+
+                        if (jsonData.success) {
+                            document.getElementById('status').innerHTML +=
+                                '<br><span class="success">✅ SUCCESS!</span>';
+                        } else {
+                            document.getElementById('status').innerHTML +=
+                                '<br><span class="error">❌ ERROR: ' +
+                                (jsonData.error || 'Unknown error') + '</span>';
+                        }
+                    } catch (e) {
+                        document.getElementById('json').textContent =
+                            'Failed to parse JSON: ' + e.message;
+                        errorDiv.style.display = 'block';
+                        document.getElementById('errorMsg').textContent =
+                            'Invalid JSON response\n\nError: ' + e.message +
+                            '\n\nRaw response:\n' + responseText;
+                    }
+                } else {
+                    document.getElementById('json').textContent = '(empty response)';
+                    errorDiv.style.display = 'block';
+                    document.getElementById('errorMsg').textContent =
+                        'Server returned empty response!';
+                }
+
+            } catch (error) {
+                console.error('AJAX error:', error);
+                errorDiv.style.display = 'block';
+                document.getElementById('errorMsg').textContent = error.toString();
+            }
+        }
+
+        // Auto-test on page load
+        // window.onload = () => testAjax();
+    </script>
+
+    <div class="section">
+        <h3>Instructions:</h3>
+        <ol>
+            <li>Make sure you're logged in to the admin panel</li>
+            <li>Click the "Test AJAX Endpoint" button above</li>
+            <li>Check the response - it should show success with JSON data</li>
+            <li>If it fails, check the error message and browser console (F12)</li>
+        </ol>
+    </div>
+</body>
+</html>
