@@ -212,10 +212,13 @@ Content Preview: {$contentPreview}
 
 Return ONLY valid JSON, no markdown, no explanation:";
 
-        $response = $provider->generateText($prompt, [
+        $result = $provider->generate($prompt, [
             'temperature' => 0.7,
             'max_tokens' => 500
         ]);
+
+        // Extract content from provider response
+        $response = $result['content'] ?? $result;
 
         // Clean response (remove markdown code blocks if present)
         $response = preg_replace('/```json\s*|\s*```/', '', $response);
