@@ -132,10 +132,16 @@
                 <p class="site-tagline"><?= site_tagline() ?></p>
             </div>
 
-            <nav class="main-nav">
-                <a href="<?= SITE_URL ?>">Home</a>
-                <!-- Add more navigation items -->
-            </nav>
+            <?php if (has_menu('primary')): ?>
+                <?php render_menu('primary', 'main-nav', 'nav-menu'); ?>
+            <?php else: ?>
+                <!-- Fallback navigation if no menu is configured -->
+                <nav class="main-nav">
+                    <ul class="nav-menu">
+                        <li><a href="<?= SITE_URL . BASE_PATH ?>">Home</a></li>
+                    </ul>
+                </nav>
+            <?php endif; ?>
         </div>
     </header>
 

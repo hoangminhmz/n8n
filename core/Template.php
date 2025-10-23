@@ -332,6 +332,141 @@ class Template {
         echo '<link rel="canonical" href="' . $url . '">' . "\n";
     }
 
+    // ========== Menu Functions ==========
+
+    /**
+     * Get menu by location
+     * @param string $location Menu location (primary, footer, mobile, sidebar)
+     * @return object|null Menu object
+     */
+    public static function get_menu($location) {
+        $cacheKey = 'menu_' . $location;
+
+        return self::$cache->remember($cacheKey, function() use ($location) {
+            return self::$db->queryOne("SELECT * FROM menus WHERE location = ?", [$location]);
+        }, 3600);
+    }
+
+    /**
+     * Get menu items for a menu
+     * @param int $menuId Menu ID
+     * @return array Menu items
+     */
+    public static function get_menu_items($menuId) {
+        $cacheKey = 'menu_items_' . $menuId;
+
+        return self::$cache->remember($cacheKey, function() use ($menuId) {
+            return self::$db->query("
+                SELECT * FROM menu_items
+                WHERE menu_id = ?
+                ORDER BY parent_id, menu_order
+            ", [$menuId]);
+        }, 3600);
+    }
+
+    /**
+     * Render navigation menu
+     * @param string $location Menu location
+     * @param string $containerClass CSS class for container
+     * @param string $menuClass CSS class for <ul>
+     */
+    public static function render_menu($location, $containerClass = '', $menuClass = 'menu') {
+        $menu = self::get_menu($location);
+        if (!$menu) {
+            return '';
+        }
+
+        $items = self::get_menu_items($menu->id);
+        if (empty($items)) {
+            return '';
+        }
+
+        // Build hierarchical structure
+        $tree = self::buildMenuTree($items);
+
+        echo '<nav' . ($containerClass ? ' class="' . $containerClass . '"' : '') . '>';
+        echo '<ul class="' . $menuClass . '">';
+        echo self::renderMenuItems($tree);
+        echo '</ul>';
+        echo '</nav>';
+    }
+
+    /**
+     * Build menu tree structure
+     */
+    private static function buildMenuTree($items, $parentId = 0) {
+        $branch = [];
+        foreach ($items as $item) {
+            if ($item->parent_id == $parentId) {
+                $children = self::buildMenuTree($items, $item->id);
+                if ($children) {
+                    $item->children = $children;
+                }
+                $branch[] = $item;
+            }
+        }
+        return $branch;
+    }
+
+    /**
+     * Render menu items recursively
+     */
+    private static function renderMenuItems($items, $depth = 0) {
+        $html = '';
+        foreach ($items as $item) {
+            $url = self::getMenuItemUrl($item);
+            $target = $item->target === '_blank' ? ' target="_blank" rel="noopener"' : '';
+            $classes = $item->css_classes ? ' class="' . htmlspecialchars($item->css_classes) . '"' : '';
+
+            $html .= '<li' . $classes . '>';
+            $html .= '<a href="' . htmlspecialchars($url) . '"' . $target . '>';
+            $html .= htmlspecialchars($item->title);
+            $html .= '</a>';
+
+            if (!empty($item->children)) {
+                $html .= '<ul class="sub-menu">';
+                $html .= self::renderMenuItems($item->children, $depth + 1);
+                $html .= '</ul>';
+            }
+
+            $html .= '</li>';
+        }
+        return $html;
+    }
+
+    /**
+     * Get URL for menu item based on type
+     */
+    private static function getMenuItemUrl($item) {
+        switch ($item->type) {
+            case 'page':
+                if ($item->object_id) {
+                    $page = self::$db->queryOne("SELECT slug FROM pages WHERE id = ?", [$item->object_id]);
+                    return $page ? SITE_URL . BASE_PATH . $page->slug : '#';
+                }
+                break;
+
+            case 'category':
+                if ($item->object_id) {
+                    $cat = self::$db->queryOne("SELECT slug FROM categories WHERE id = ?", [$item->object_id]);
+                    return $cat ? SITE_URL . BASE_PATH . 'category/' . $cat->slug : '#';
+                }
+                break;
+
+            case 'post':
+                if ($item->object_id) {
+                    $post = self::$db->queryOne("SELECT slug FROM posts WHERE id = ?", [$item->object_id]);
+                    return $post ? SITE_URL . BASE_PATH . 'post/' . $post->slug : '#';
+                }
+                break;
+
+            case 'custom':
+                return $item->custom_url ?: '#';
+        }
+
+        return '#';
+    }
+
     // ========== Helper Functions ==========
 
     public static function getSetting($key, $default = null) {
@@ -398,3 +533,5 @@ function excerpt($text, $length = 100) { return Template::excerpt($text, $length
 function is_page() { return Template::is_page(); }
 function is_page_slug($slug) { return Template::is_page_slug($slug); }
 function get_current_page() { return Template::getCurrentPage(); }
+function render_menu($location, $containerClass = '', $menuClass = 'menu') { Template::render_menu($location, $containerClass, $menuClass); }
+function has_menu($location) { return !empty(Template::get_menu($location)); }
