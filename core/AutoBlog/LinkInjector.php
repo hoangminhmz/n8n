@@ -61,7 +61,6 @@ class LinkInjector {
                 SELECT p.* FROM affiliate_products p
                 JOIN campaign_affiliates ca ON p.id = ca.product_id
                 WHERE ca.campaign_id = ?
-                AND p.status = 'active'
                 ORDER BY ca.priority ASC
                 LIMIT 10
             ", [$campaign_id]);
@@ -69,7 +68,6 @@ class LinkInjector {
 
         return $this->db->query("
             SELECT * FROM affiliate_products
-            WHERE status = 'active'
             ORDER BY clicks DESC
             LIMIT 10
         ");
