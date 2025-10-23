@@ -15,11 +15,49 @@ $auth->requireLogin();
 $action = $_GET['action'] ?? 'list';
 $postId = $_GET['id'] ?? null;
 $message = '';
+$messageType = 'success';
 $error = '';
 
 // Handle POST requests
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['delete'])) {
+    if (isset($_POST['bulk_action']) && !empty($_POST['selected_posts'])) {
+        // Bulk actions
+        $bulkAction = $_POST['bulk_action'];
+        $postIds = $_POST['selected_posts'];
+        $count = 0;
+
+        switch ($bulkAction) {
+            case 'delete':
+                foreach ($postIds as $id) {
+                    $db->delete('posts', 'id = ?', [(int)$id]);
+                    $count++;
+                }
+                $message = "✅ Deleted {$count} post(s)";
+                break;
+
+            case 'publish':
+                foreach ($postIds as $id) {
+                    $db->update('posts', [
+                        'status' => 'published',
+                        'published_at' => date('Y-m-d H:i:s')
+                    ], 'id = :id', ['id' => (int)$id]);
+                    $count++;
+                }
+                $message = "✅ Published {$count} post(s)";
+                break;
+
+            case 'draft':
+                foreach ($postIds as $id) {
+                    $db->update('posts', [
+                        'status' => 'draft'
+                    ], 'id = :id', ['id' => (int)$id]);
+                    $count++;
+                }
+                $message = "✅ Changed {$count} post(s) to draft";
+                break;
+        }
+        $action = 'list';
+    } elseif (isset($_POST['delete'])) {
         // Delete post
         $db->delete('posts', 'id = ?', [$_POST['post_id']]);
         $message = 'Post deleted successfully';
@@ -88,7 +126,9 @@ include __DIR__ . '/includes/header.php';
 ?>
 
 <?php if ($message): ?>
-    <div class="alert alert-success"><?= htmlspecialchars($message) ?></div>
+    <div class="alert alert-<?= $messageType ?>">
+        <?= $message ?>
+    </div>
 <?php endif; ?>
 
 <?php if ($error): ?>
@@ -111,55 +151,130 @@ include __DIR__ . '/includes/header.php';
                 <a href="?action=new" class="btn btn-primary">Create Post</a>
             </div>
         <?php else: ?>
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Title</th>
-                            <th>Author</th>
-                            <th>Status</th>
-                            <th>Type</th>
-                            <th>Views</th>
-                            <th>Date</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($posts as $p): ?>
+            <form method="POST" id="bulkForm">
+                <!-- Bulk Actions Bar -->
+                <div style="display: flex; gap: 1rem; align-items: center; padding: 1rem; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
+                    <select name="bulk_action" id="bulkAction" class="form-control" style="width: 200px;">
+                        <option value="">Bulk Actions</option>
+                        <option value="publish">Publish</option>
+                        <option value="draft">Set to Draft</option>
+                        <option value="delete">Delete</option>
+                    </select>
+                    <button type="submit" class="btn btn-primary" onclick="return confirmBulkAction()">Apply</button>
+                    <span id="selectedCount" style="color: #6b7280; font-size: 0.875rem;"></span>
+                </div>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
                             <tr>
-                                <td>
-                                    <strong><?= htmlspecialchars($p->title) ?></strong>
-                                </td>
-                                <td><?= htmlspecialchars($p->username ?? 'Unknown') ?></td>
-                                <td>
-                                    <span class="badge badge-<?= $p->status === 'published' ? 'success' : 'warning' ?>">
-                                        <?= $p->status ?>
-                                    </span>
-                                </td>
-                                <td>
-                                    <?php if ($p->is_ai_generated): ?>
-                                        <span class="badge badge-info">🤖 AI</span>
-                                    <?php else: ?>
-                                        <span class="badge">Manual</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td><?= number_format($p->views) ?></td>
-                                <td><?= date('M j, Y', strtotime($p->created_at)) ?></td>
-                                <td>
-                                    <a href="?action=edit&id=<?= $p->id ?>" class="btn btn-sm btn-outline">Edit</a>
-                                    <?php if ($p->status === 'published'): ?>
-                                        <a href="/post/<?= $p->slug ?>" target="_blank" class="btn btn-sm btn-outline">View</a>
-                                    <?php endif; ?>
-                                    <form method="POST" style="display:inline;" onsubmit="return confirmDelete();">
-                                        <input type="hidden" name="post_id" value="<?= $p->id ?>">
-                                        <button type="submit" name="delete" class="btn btn-sm btn-danger">Delete</button>
-                                    </form>
-                                </td>
+                                <th style="width: 40px;">
+                                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)">
+                                </th>
+                                <th>Title</th>
+                                <th>Author</th>
+                                <th>Status</th>
+                                <th>Type</th>
+                                <th>Views</th>
+                                <th>Date</th>
+                                <th style="width: 220px;">Actions</th>
                             </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($posts as $p): ?>
+                                <tr>
+                                    <td>
+                                        <input type="checkbox" name="selected_posts[]" value="<?= $p->id ?>" class="post-checkbox" onchange="updateSelectedCount()">
+                                    </td>
+                                    <td>
+                                        <strong><?= htmlspecialchars($p->title) ?></strong>
+                                    </td>
+                                    <td><?= htmlspecialchars($p->username ?? 'Unknown') ?></td>
+                                    <td>
+                                        <span class="badge badge-<?= $p->status === 'published' ? 'success' : 'warning' ?>">
+                                            <?= $p->status ?>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <?php if ($p->is_ai_generated): ?>
+                                            <span class="badge badge-info">🤖 AI</span>
+                                        <?php else: ?>
+                                            <span class="badge">Manual</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td><?= number_format($p->views) ?></td>
+                                    <td><?= date('M j, Y', strtotime($p->created_at)) ?></td>
+                                    <td>
+                                        <div style="display: flex; gap: 0.25rem; flex-wrap: wrap;">
+                                            <a href="?action=edit&id=<?= $p->id ?>" class="btn btn-sm btn-outline">✏️ Edit</a>
+                                            <?php if ($p->status === 'published'): ?>
+                                                <a href="<?= SITE_URL ?><?= BASE_PATH ?>post/<?= $p->slug ?>" target="_blank" class="btn btn-sm btn-outline">👁️ View</a>
+                                            <?php endif; ?>
+                                            <form method="POST" style="display:inline; margin: 0;" onsubmit="return confirm('Delete this post?');">
+                                                <input type="hidden" name="post_id" value="<?= $p->id ?>">
+                                                <button type="submit" name="delete" class="btn btn-sm btn-danger">🗑️</button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </form>
+
+            <script>
+                function toggleSelectAll(checkbox) {
+                    const checkboxes = document.querySelectorAll('.post-checkbox');
+                    checkboxes.forEach(cb => cb.checked = checkbox.checked);
+                    updateSelectedCount();
+                }
+
+                function updateSelectedCount() {
+                    const checked = document.querySelectorAll('.post-checkbox:checked').length;
+                    const total = document.querySelectorAll('.post-checkbox').length;
+                    const countEl = document.getElementById('selectedCount');
+
+                    if (checked > 0) {
+                        countEl.textContent = `${checked} of ${total} selected`;
+                        countEl.style.fontWeight = '600';
+                        countEl.style.color = '#3b82f6';
+                    } else {
+                        countEl.textContent = '';
+                    }
+
+                    // Update select all checkbox state
+                    const selectAllCheckbox = document.getElementById('selectAll');
+                    selectAllCheckbox.checked = checked === total && total > 0;
+                    selectAllCheckbox.indeterminate = checked > 0 && checked < total;
+                }
+
+                function confirmBulkAction() {
+                    const action = document.getElementById('bulkAction').value;
+                    const checked = document.querySelectorAll('.post-checkbox:checked').length;
+
+                    if (!action) {
+                        alert('Please select an action from the dropdown.');
+                        return false;
+                    }
+
+                    if (checked === 0) {
+                        alert('Please select at least one post.');
+                        return false;
+                    }
+
+                    const actionNames = {
+                        'delete': 'delete',
+                        'publish': 'publish',
+                        'draft': 'set to draft'
+                    };
+
+                    return confirm(`Are you sure you want to ${actionNames[action]} ${checked} post(s)?`);
+                }
+
+                // Initialize count on page load
+                document.addEventListener('DOMContentLoaded', updateSelectedCount);
+            </script>
         <?php endif; ?>
     </div>
 
