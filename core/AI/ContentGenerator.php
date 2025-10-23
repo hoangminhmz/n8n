@@ -51,7 +51,7 @@ class ContentGenerator {
     }
 
     /**
-     * Generate a complete article
+     * Generate a complete article with full SEO optimization
      * @param string $topic Article topic
      * @param array $keywords Keywords to include
      * @return array Article data
@@ -63,21 +63,82 @@ class ContentGenerator {
         // Step 2: Generate content
         $content = $this->generateContent($outline, $keywords);
 
-        // Step 3: Generate metadata
+        // Step 3: Add Table of Contents (if needed)
+        require_once __DIR__ . '/../SEO/TOCGenerator.php';
+        $tocGen = new TOCGenerator();
+        $content = $tocGen->generate($content);
+
+        // Step 4: Generate metadata
         $metadata = $this->generateMetadata($topic, $keywords);
 
-        // Step 4: Generate featured image (placeholder for now)
+        // Step 5: Generate featured image (placeholder for now)
         $featuredImage = $this->generateFeaturedImage($topic);
 
+        // Step 6: Generate SEO fields
+        $focusKeyword = $keywords['primary'][0] ?? $topic;
+        $canonicalUrl = SITE_URL . BASE_PATH . 'post/' . $this->generateSlug($metadata['title']);
+
+        // Step 7: Extract FAQ data
+        require_once __DIR__ . '/../SEO/FAQExtractor.php';
+        $faqExtractor = new FAQExtractor();
+        $faqs = $faqExtractor->extract($content);
+        $schemaType = $faqExtractor->detectSchemaType($content);
+
+        // Step 8: Analyze content quality
+        require_once __DIR__ . '/../SEO/SEOAnalyzer.php';
+        $seoAnalyzer = new SEOAnalyzer();
+
+        // Create temporary post object for analysis
+        $tempPost = (object)[
+            'title' => $metadata['title'],
+            'meta_description' => $metadata['meta_description'],
+            'focus_keyword' => $focusKeyword
+        ];
+
+        $seoMetrics = $seoAnalyzer->analyze($tempPost, $content);
+
         return [
+            // Basic fields
             'title' => $metadata['title'],
             'slug' => $this->generateSlug($metadata['title']),
             'content' => $content,
             'excerpt' => $this->generateExcerpt($content),
-            'meta_description' => $metadata['meta_description'],
-            'seo_title' => $metadata['seo_title'],
+            'featured_image' => $featuredImage,
             'keywords' => json_encode($keywords),
-            'featured_image' => $featuredImage
+
+            // SEO Meta
+            'seo_title' => $metadata['seo_title'],
+            'meta_description' => $metadata['meta_description'],
+            'focus_keyword' => $focusKeyword,
+            'canonical_url' => $canonicalUrl,
+            'meta_robots' => 'index,follow',
+
+            // Open Graph
+            'og_title' => $metadata['seo_title'],
+            'og_description' => $metadata['meta_description'],
+            'og_image' => $featuredImage,
+
+            // Twitter Cards
+            'twitter_title' => $metadata['seo_title'],
+            'twitter_description' => $metadata['meta_description'],
+            'twitter_image' => $featuredImage,
+
+            // Schema & Structured Data
+            'schema_type' => $schemaType,
+            'faq_data' => !empty($faqs) ? json_encode($faqs) : null,
+
+            // Content Quality Metrics
+            'word_count' => $seoMetrics['word_count'],
+            'reading_time' => $seoMetrics['reading_time'],
+            'readability_score' => $seoMetrics['readability_score'],
+            'internal_links_count' => $seoMetrics['internal_links_count'],
+            'external_links_count' => $seoMetrics['external_links_count'],
+            'images_count' => $seoMetrics['images_count'],
+            'has_table_of_contents' => $seoMetrics['has_table_of_contents'],
+
+            // SEO Score
+            'seo_score' => $seoMetrics['seo_score'],
+            'last_seo_check' => date('Y-m-d H:i:s')
         ];
     }
 
