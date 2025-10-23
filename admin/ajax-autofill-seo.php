@@ -198,19 +198,23 @@ function generateSEOMetadata($title, $content, $focusKeyword) {
         // Create prompt for SEO metadata generation
         $contentPreview = substr(strip_tags($content), 0, 500);
 
-        $prompt = "Generate SEO metadata for this blog post. Return ONLY a JSON object with these fields:
-- seo_title (50-60 chars, include focus keyword at start)
-- meta_description (150-160 chars, compelling, include focus keyword)
-- og_title (engaging social media title, can be different from SEO title)
-- og_description (compelling description for social sharing)
-- twitter_title (optimized for Twitter)
-- twitter_description (optimized for Twitter)
+        $prompt = "Generate SEO metadata for this blog post.
+
+IMPORTANT: Return ONLY a valid JSON object. Do not include any HTML, markdown, code blocks, or explanations.
+
+Required JSON fields:
+- seo_title: String, 50-60 characters, include focus keyword at start
+- meta_description: String, 150-160 characters, compelling description, include focus keyword
+- og_title: String, engaging social media title
+- og_description: String, compelling description for social sharing
+- twitter_title: String, optimized for Twitter
+- twitter_description: String, optimized for Twitter
 
 Title: {$title}
 Focus Keyword: {$focusKeyword}
 Content Preview: {$contentPreview}
 
-Return ONLY valid JSON, no markdown, no explanation:";
+Return ONLY the JSON object, nothing else:";
 
         $result = $provider->generate($prompt, [
             'temperature' => 0.7,
@@ -220,8 +224,19 @@ Return ONLY valid JSON, no markdown, no explanation:";
         // Extract content from provider response
         $response = $result['content'] ?? $result;
 
-        // Clean response (remove markdown code blocks if present)
-        $response = preg_replace('/```json\s*|\s*```/', '', $response);
+        // Clean response aggressively
+        // Remove markdown code blocks
+        $response = preg_replace('/```(?:json)?\s*/', '', $response);
+        $response = preg_replace('/```\s*$/', '', $response);
+
+        // Remove HTML tags
+        $response = strip_tags($response);
+
+        // Find JSON object (starts with { and ends with })
+        if (preg_match('/(\{.*\})/s', $response, $matches)) {
+            $response = $matches[1];
+        }
+
         $response = trim($response);
 
         $seoData = json_decode($response, true);
