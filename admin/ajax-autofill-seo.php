@@ -3,8 +3,8 @@
  * AJAX Endpoint - Auto-fill SEO fields with AI
  */
 
-// Prevent any output before JSON
-ob_start();
+// Don't use output buffering - it suppresses fatal errors
+// Instead, ensure no output before JSON response
 
 try {
     require_once __DIR__ . '/../config.php';
@@ -14,19 +14,16 @@ try {
     require_once SITE_PATH . '/core/SEO/TOCGenerator.php';
     require_once SITE_PATH . '/core/SEO/FAQExtractor.php';
 
-    // Clear any output from includes
-    ob_clean();
-
     header('Content-Type: application/json');
 
     // Note: No authentication check needed here because:
     // 1. This file is in /admin/ directory
     // 2. User must be logged in to access /admin/posts.php
     // 3. AJAX requests inherit the session from the parent page
-    // If you want to add auth check, ensure session_start() is called in config.php
 
     // Get database instance
     $db = Database::getInstance();
+
     // Get input
     $input = json_decode(file_get_contents('php://input'), true);
     $title = $input['title'] ?? '';
@@ -47,7 +44,7 @@ try {
         'seo_title' => $title
     ];
 
-    // Extract focus keyword from title (use AI or simple extraction)
+    // Extract focus keyword
     $focusKeyword = extractFocusKeyword($title);
 
     // Generate SEO metadata using AI
@@ -106,36 +103,22 @@ try {
     ]);
 
 } catch (Exception $e) {
-    // Clear any output
-    ob_clean();
-
-    // Log the error
-    error_log("AJAX Auto-fill SEO Error: " . $e->getMessage() . "\n" . $e->getTraceAsString());
-
     header('Content-Type: application/json');
     http_response_code(500);
     echo json_encode([
         'success' => false,
         'error' => $e->getMessage(),
-        'trace' => SITE_DEBUG ? $e->getTraceAsString() : null
+        'trace' => defined('SITE_DEBUG') && SITE_DEBUG ? $e->getTraceAsString() : null
     ]);
 } catch (Error $e) {
-    // Catch PHP errors too
-    ob_clean();
-
-    error_log("AJAX Auto-fill SEO Fatal Error: " . $e->getMessage() . "\n" . $e->getTraceAsString());
-
     header('Content-Type: application/json');
     http_response_code(500);
     echo json_encode([
         'success' => false,
         'error' => 'Fatal error: ' . $e->getMessage(),
-        'trace' => SITE_DEBUG ? $e->getTraceAsString() : null
+        'trace' => defined('SITE_DEBUG') && SITE_DEBUG ? $e->getTraceAsString() : null
     ]);
 }
-
-// End output buffering
-ob_end_flush();
 
 /**
  * Extract focus keyword from title
