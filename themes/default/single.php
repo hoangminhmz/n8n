@@ -10,6 +10,10 @@
             </time>
             <span class="separator">•</span>
             <span class="reading-time"><?= reading_time() ?> min read</span>
+            <?php global $currentPost; if (!empty($currentPost->word_count)): ?>
+                <span class="separator">•</span>
+                <span class="word-count"><?= number_format($currentPost->word_count) ?> words</span>
+            <?php endif; ?>
             <span class="separator">•</span>
             <span class="view-count"><?= view_count() ?> views</span>
         </div>

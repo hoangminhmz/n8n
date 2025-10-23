@@ -6,6 +6,7 @@
 require_once __DIR__ . '/../config.php';
 require_once SITE_PATH . '/core/Database.php';
 require_once SITE_PATH . '/core/Auth.php';
+require_once SITE_PATH . '/core/SEO/SEOAnalyzer.php';
 
 $pageTitle = 'Posts';
 $db = Database::getInstance();
@@ -84,7 +85,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'status' => $_POST['status'],
             'meta_description' => $_POST['meta_description'] ?? '',
             'seo_title' => $_POST['seo_title'] ?? $_POST['title'],
-            'updated_at' => date('Y-m-d H:i:s')
+            'updated_at' => date('Y-m-d H:i:s'),
+            // SEO Meta
+            'focus_keyword' => $_POST['focus_keyword'] ?? '',
+            'canonical_url' => $_POST['canonical_url'] ?? '',
+            'meta_robots' => $_POST['meta_robots'] ?? 'index,follow',
+            // Open Graph
+            'og_title' => $_POST['og_title'] ?? '',
+            'og_description' => $_POST['og_description'] ?? '',
+            'og_image' => $_POST['og_image'] ?? '',
+            // Twitter Cards
+            'twitter_title' => $_POST['twitter_title'] ?? '',
+            'twitter_description' => $_POST['twitter_description'] ?? '',
+            'twitter_image' => $_POST['twitter_image'] ?? '',
+            // Schema
+            'schema_type' => $_POST['schema_type'] ?? 'Article',
+            'faq_data' => $_POST['faq_data'] ?? ''
         ];
 
         if ($postId) {
@@ -102,13 +118,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $postId = $db->insert('posts', $data);
             $message = 'Post created successfully';
         }
+
+        // Recalculate SEO metrics after save
+        $savedPost = $db->queryOne("SELECT * FROM posts WHERE id = ?", [$postId]);
+        $seoAnalyzer = new SEOAnalyzer();
+        $seoMetrics = $seoAnalyzer->analyze($savedPost, $savedPost->content);
+
+        // Update SEO metrics
+        $db->update('posts', [
+            'word_count' => $seoMetrics['word_count'],
+            'reading_time' => $seoMetrics['reading_time'],
+            'readability_score' => $seoMetrics['readability_score'],
+            'internal_links_count' => $seoMetrics['internal_links_count'],
+            'external_links_count' => $seoMetrics['external_links_count'],
+            'images_count' => $seoMetrics['images_count'],
+            'has_table_of_contents' => $seoMetrics['has_table_of_contents'],
+            'seo_score' => $seoMetrics['seo_score'],
+            'last_seo_check' => date('Y-m-d H:i:s')
+        ], 'id = :id', ['id' => $postId]);
     }
 }
 
 // Get post data for edit
 $post = null;
+$seoMetrics = null;
+$seoRecommendations = [];
 if ($postId && in_array($action, ['edit', 'view'])) {
     $post = $db->queryOne("SELECT * FROM posts WHERE id = ?", [$postId]);
+
+    // Calculate SEO metrics and get recommendations
+    if ($post && $post->content) {
+        $seoAnalyzer = new SEOAnalyzer();
+        $seoMetrics = $seoAnalyzer->analyze($post, $post->content);
+        $seoRecommendations = $seoAnalyzer->getRecommendations($post, $post->content, $seoMetrics);
+    }
 }
 
 // Get all posts for list
@@ -175,6 +218,7 @@ include __DIR__ . '/includes/header.php';
                                 <th>Author</th>
                                 <th>Status</th>
                                 <th>Type</th>
+                                <th>SEO</th>
                                 <th>Views</th>
                                 <th>Date</th>
                                 <th style="width: 220px;">Actions</th>
@@ -201,6 +245,31 @@ include __DIR__ . '/includes/header.php';
                                         <?php else: ?>
                                             <span class="badge">Manual</span>
                                         <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php
+                                        $seoScore = $p->seo_score ?? 0;
+                                        $seoColor = 'secondary';
+                                        $seoLabel = 'N/A';
+                                        if ($seoScore > 0) {
+                                            if ($seoScore >= 80) {
+                                                $seoColor = 'success';
+                                                $seoLabel = 'Excellent';
+                                            } elseif ($seoScore >= 60) {
+                                                $seoColor = 'info';
+                                                $seoLabel = 'Good';
+                                            } elseif ($seoScore >= 40) {
+                                                $seoColor = 'warning';
+                                                $seoLabel = 'Fair';
+                                            } else {
+                                                $seoColor = 'danger';
+                                                $seoLabel = 'Poor';
+                                            }
+                                        }
+                                        ?>
+                                        <span class="badge badge-<?= $seoColor ?>" title="SEO Score: <?= $seoScore ?>/100">
+                                            <?= $seoScore ?> - <?= $seoLabel ?>
+                                        </span>
                                     </td>
                                     <td><?= number_format($p->views) ?></td>
                                     <td><?= date('M j, Y', strtotime($p->created_at)) ?></td>
@@ -326,8 +395,170 @@ include __DIR__ . '/includes/header.php';
 
             <div class="form-group">
                 <label for="meta_description">Meta Description</label>
-                <textarea id="meta_description" name="meta_description" rows="2"><?= htmlspecialchars($post->meta_description ?? '') ?></textarea>
-                <small>Recommended: 150-160 characters</small>
+                <textarea id="meta_description" name="meta_description" rows="2" maxlength="160"><?= htmlspecialchars($post->meta_description ?? '') ?></textarea>
+                <small>Recommended: 150-160 characters <span id="meta_desc_count"></span></small>
+            </div>
+
+            <?php if ($action === 'edit' && $seoMetrics): ?>
+                <!-- SEO Dashboard -->
+                <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin: 2rem 0;">
+                    <h3 style="margin: 0 0 1rem 0; font-size: 1.125rem; font-weight: 600;">SEO Performance</h3>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                        <!-- SEO Score -->
+                        <div style="background: white; padding: 1rem; border-radius: 6px; border: 1px solid #e5e7eb;">
+                            <div style="color: #6b7280; font-size: 0.875rem; margin-bottom: 0.5rem;">SEO Score</div>
+                            <div style="font-size: 2rem; font-weight: 700; color: <?= $seoMetrics['seo_score'] >= 80 ? '#10b981' : ($seoMetrics['seo_score'] >= 60 ? '#3b82f6' : ($seoMetrics['seo_score'] >= 40 ? '#f59e0b' : '#ef4444')) ?>;">
+                                <?= $seoMetrics['seo_score'] ?><span style="font-size: 1rem; color: #6b7280;">/100</span>
+                            </div>
+                        </div>
+
+                        <!-- Word Count -->
+                        <div style="background: white; padding: 1rem; border-radius: 6px; border: 1px solid #e5e7eb;">
+                            <div style="color: #6b7280; font-size: 0.875rem; margin-bottom: 0.5rem;">Word Count</div>
+                            <div style="font-size: 1.5rem; font-weight: 600;"><?= number_format($seoMetrics['word_count']) ?></div>
+                            <div style="font-size: 0.75rem; color: #6b7280;"><?= $seoMetrics['reading_time'] ?> min read</div>
+                        </div>
+
+                        <!-- Readability -->
+                        <div style="background: white; padding: 1rem; border-radius: 6px; border: 1px solid #e5e7eb;">
+                            <div style="color: #6b7280; font-size: 0.875rem; margin-bottom: 0.5rem;">Readability</div>
+                            <div style="font-size: 1.5rem; font-weight: 600;"><?= round($seoMetrics['readability_score'], 1) ?></div>
+                            <div style="font-size: 0.75rem; color: #6b7280;">
+                                <?= $seoMetrics['readability_score'] >= 60 ? 'Easy to read' : ($seoMetrics['readability_score'] >= 30 ? 'Moderate' : 'Difficult') ?>
+                            </div>
+                        </div>
+
+                        <!-- Links -->
+                        <div style="background: white; padding: 1rem; border-radius: 6px; border: 1px solid #e5e7eb;">
+                            <div style="color: #6b7280; font-size: 0.875rem; margin-bottom: 0.5rem;">Links</div>
+                            <div style="font-size: 1rem; font-weight: 600;">
+                                🔗 <?= $seoMetrics['internal_links_count'] ?> internal<br>
+                                🌐 <?= $seoMetrics['external_links_count'] ?> external
+                            </div>
+                        </div>
+
+                        <!-- Images -->
+                        <div style="background: white; padding: 1rem; border-radius: 6px; border: 1px solid #e5e7eb;">
+                            <div style="color: #6b7280; font-size: 0.875rem; margin-bottom: 0.5rem;">Images</div>
+                            <div style="font-size: 1.5rem; font-weight: 600;">🖼️ <?= $seoMetrics['images_count'] ?></div>
+                        </div>
+
+                        <!-- TOC -->
+                        <div style="background: white; padding: 1rem; border-radius: 6px; border: 1px solid #e5e7eb;">
+                            <div style="color: #6b7280; font-size: 0.875rem; margin-bottom: 0.5rem;">Table of Contents</div>
+                            <div style="font-size: 1.5rem; font-weight: 600;">
+                                <?= $seoMetrics['has_table_of_contents'] ? '✅ Yes' : '❌ No' ?>
+                            </div>
+                        </div>
+                    </div>
+
+                    <?php if (!empty($seoRecommendations)): ?>
+                        <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
+                            <h4 style="margin: 0 0 0.75rem 0; font-size: 1rem; font-weight: 600;">SEO Recommendations</h4>
+                            <ul style="margin: 0; padding-left: 1.5rem; color: #374151;">
+                                <?php foreach ($seoRecommendations as $rec): ?>
+                                    <li style="margin-bottom: 0.5rem;"><?= htmlspecialchars($rec) ?></li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+
+            <!-- SEO Fields Section -->
+            <div style="border-top: 2px solid #e5e7eb; padding-top: 2rem; margin-top: 2rem;">
+                <h3 style="margin: 0 0 1.5rem 0; font-size: 1.25rem; font-weight: 600;">Advanced SEO</h3>
+
+                <!-- Focus Keyword -->
+                <div class="form-group">
+                    <label for="focus_keyword">Focus Keyword</label>
+                    <input type="text" id="focus_keyword" name="focus_keyword" value="<?= htmlspecialchars($post->focus_keyword ?? '') ?>">
+                    <small>Main keyword you're targeting for this post</small>
+                </div>
+
+                <!-- Canonical URL -->
+                <div class="form-group">
+                    <label for="canonical_url">Canonical URL</label>
+                    <input type="url" id="canonical_url" name="canonical_url" value="<?= htmlspecialchars($post->canonical_url ?? '') ?>">
+                    <small>Leave blank to use default post URL</small>
+                </div>
+
+                <!-- Meta Robots -->
+                <div class="form-group">
+                    <label for="meta_robots">Meta Robots</label>
+                    <select id="meta_robots" name="meta_robots">
+                        <option value="index,follow" <?= ($post->meta_robots ?? 'index,follow') === 'index,follow' ? 'selected' : '' ?>>Index, Follow (Default)</option>
+                        <option value="noindex,follow" <?= ($post->meta_robots ?? '') === 'noindex,follow' ? 'selected' : '' ?>>No Index, Follow</option>
+                        <option value="index,nofollow" <?= ($post->meta_robots ?? '') === 'index,nofollow' ? 'selected' : '' ?>>Index, No Follow</option>
+                        <option value="noindex,nofollow" <?= ($post->meta_robots ?? '') === 'noindex,nofollow' ? 'selected' : '' ?>>No Index, No Follow</option>
+                    </select>
+                    <small>Control how search engines index this page</small>
+                </div>
+
+                <!-- Open Graph Section -->
+                <h4 style="margin: 2rem 0 1rem 0; font-size: 1.125rem; font-weight: 600; color: #374151;">Open Graph (Facebook, LinkedIn)</h4>
+
+                <div class="form-group">
+                    <label for="og_title">OG Title</label>
+                    <input type="text" id="og_title" name="og_title" value="<?= htmlspecialchars($post->og_title ?? '') ?>" placeholder="<?= htmlspecialchars($post->title ?? '') ?>">
+                    <small>Leave blank to use post title</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="og_description">OG Description</label>
+                    <textarea id="og_description" name="og_description" rows="2" maxlength="200"><?= htmlspecialchars($post->og_description ?? '') ?></textarea>
+                    <small>Recommended: 150-200 characters</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="og_image">OG Image URL</label>
+                    <input type="url" id="og_image" name="og_image" value="<?= htmlspecialchars($post->og_image ?? '') ?>">
+                    <small>Recommended: 1200x630px for best display</small>
+                </div>
+
+                <!-- Twitter Card Section -->
+                <h4 style="margin: 2rem 0 1rem 0; font-size: 1.125rem; font-weight: 600; color: #374151;">Twitter Card</h4>
+
+                <div class="form-group">
+                    <label for="twitter_title">Twitter Title</label>
+                    <input type="text" id="twitter_title" name="twitter_title" value="<?= htmlspecialchars($post->twitter_title ?? '') ?>" placeholder="<?= htmlspecialchars($post->title ?? '') ?>">
+                    <small>Leave blank to use post title</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="twitter_description">Twitter Description</label>
+                    <textarea id="twitter_description" name="twitter_description" rows="2" maxlength="200"><?= htmlspecialchars($post->twitter_description ?? '') ?></textarea>
+                    <small>Recommended: 150-200 characters</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="twitter_image">Twitter Image URL</label>
+                    <input type="url" id="twitter_image" name="twitter_image" value="<?= htmlspecialchars($post->twitter_image ?? '') ?>">
+                    <small>Recommended: 1200x675px or 1:1 ratio</small>
+                </div>
+
+                <!-- Schema Section -->
+                <h4 style="margin: 2rem 0 1rem 0; font-size: 1.125rem; font-weight: 600; color: #374151;">Structured Data</h4>
+
+                <div class="form-group">
+                    <label for="schema_type">Schema Type</label>
+                    <select id="schema_type" name="schema_type">
+                        <option value="Article" <?= ($post->schema_type ?? 'Article') === 'Article' ? 'selected' : '' ?>>Article (Default)</option>
+                        <option value="BlogPosting" <?= ($post->schema_type ?? '') === 'BlogPosting' ? 'selected' : '' ?>>Blog Posting</option>
+                        <option value="NewsArticle" <?= ($post->schema_type ?? '') === 'NewsArticle' ? 'selected' : '' ?>>News Article</option>
+                        <option value="HowTo" <?= ($post->schema_type ?? '') === 'HowTo' ? 'selected' : '' ?>>How-To Guide</option>
+                        <option value="FAQPage" <?= ($post->schema_type ?? '') === 'FAQPage' ? 'selected' : '' ?>>FAQ Page</option>
+                        <option value="Review" <?= ($post->schema_type ?? '') === 'Review' ? 'selected' : '' ?>>Review</option>
+                    </select>
+                    <small>Schema.org type for structured data</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="faq_data">FAQ Data (JSON)</label>
+                    <textarea id="faq_data" name="faq_data" rows="4" style="font-family: monospace; font-size: 0.875rem;"><?= htmlspecialchars($post->faq_data ?? '') ?></textarea>
+                    <small>Auto-detected FAQ data in JSON format. Edit manually if needed.</small>
+                </div>
             </div>
 
             <div style="display: flex; gap: 1rem; margin-top: 2rem;">
@@ -338,6 +569,28 @@ include __DIR__ . '/includes/header.php';
             </div>
         </form>
     </div>
+
+    <!-- Character counters -->
+    <script>
+        function updateCharCount(textareaId, countSpanId, limit) {
+            const textarea = document.getElementById(textareaId);
+            const countSpan = document.getElementById(countSpanId);
+            if (!textarea || !countSpan) return;
+
+            const update = () => {
+                const length = textarea.value.length;
+                countSpan.textContent = `(${length}/${limit})`;
+                countSpan.style.color = length > limit ? '#ef4444' : (length >= limit - 10 ? '#f59e0b' : '#10b981');
+            };
+
+            textarea.addEventListener('input', update);
+            update();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            updateCharCount('meta_description', 'meta_desc_count', 160);
+        });
+    </script>
 <?php endif; ?>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>
