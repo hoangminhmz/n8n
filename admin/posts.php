@@ -65,7 +65,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $action = 'list';
     } elseif (isset($_POST['save'])) {
         // Save post
-        $slug = strtolower(trim(preg_replace('/[^a-z0-9]+/', '-', $_POST['title'])));
+        // Fix: Convert to lowercase BEFORE regex to preserve letters
+        $slug = strtolower($_POST['title']);
+        $slug = preg_replace('/[^a-z0-9]+/', '-', $slug);
+        $slug = trim($slug, '-');
 
         // Check if slug exists
         $existingPost = $db->queryOne("SELECT id FROM posts WHERE slug = ? AND id != ?", [
@@ -468,7 +471,13 @@ include __DIR__ . '/includes/header.php';
 
             <!-- SEO Fields Section -->
             <div style="border-top: 2px solid #e5e7eb; padding-top: 2rem; margin-top: 2rem;">
-                <h3 style="margin: 0 0 1.5rem 0; font-size: 1.25rem; font-weight: 600;">Advanced SEO</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h3 style="margin: 0; font-size: 1.25rem; font-weight: 600;">Advanced SEO</h3>
+                    <button type="button" id="autoFillSEO" class="btn btn-info" style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span id="autoFillIcon">🤖</span>
+                        <span id="autoFillText">Auto-Fill SEO with AI</span>
+                    </button>
+                </div>
 
                 <!-- Focus Keyword -->
                 <div class="form-group">
@@ -570,7 +579,7 @@ include __DIR__ . '/includes/header.php';
         </form>
     </div>
 
-    <!-- Character counters -->
+    <!-- Character counters and Auto-fill SEO -->
     <script>
         function updateCharCount(textareaId, countSpanId, limit) {
             const textarea = document.getElementById(textareaId);
@@ -586,6 +595,96 @@ include __DIR__ . '/includes/header.php';
             textarea.addEventListener('input', update);
             update();
         }
+
+        // Auto-fill SEO with AI
+        document.getElementById('autoFillSEO')?.addEventListener('click', async function(e) {
+            e.preventDefault();
+
+            const title = document.getElementById('title').value;
+            const content = document.getElementById('content').value;
+            const canonicalUrl = document.getElementById('canonical_url').value;
+
+            if (!title || !content) {
+                alert('Please enter title and content first before auto-filling SEO fields.');
+                return;
+            }
+
+            // Show loading state
+            const btn = this;
+            const icon = document.getElementById('autoFillIcon');
+            const text = document.getElementById('autoFillText');
+            const originalText = text.textContent;
+
+            btn.disabled = true;
+            icon.textContent = '⏳';
+            text.textContent = 'Generating SEO data...';
+
+            try {
+                const response = await fetch('ajax-autofill-seo.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        title: title,
+                        content: content,
+                        postUrl: canonicalUrl
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to generate SEO data');
+                }
+
+                // Fill in all SEO fields
+                const data = result.data;
+
+                document.getElementById('focus_keyword').value = data.focus_keyword || '';
+                document.getElementById('seo_title').value = data.seo_title || '';
+                document.getElementById('meta_description').value = data.meta_description || '';
+                document.getElementById('canonical_url').value = data.canonical_url || '';
+                document.getElementById('meta_robots').value = data.meta_robots || 'index,follow';
+
+                document.getElementById('og_title').value = data.og_title || '';
+                document.getElementById('og_description').value = data.og_description || '';
+                document.getElementById('og_image').value = data.og_image || '';
+
+                document.getElementById('twitter_title').value = data.twitter_title || '';
+                document.getElementById('twitter_description').value = data.twitter_description || '';
+                document.getElementById('twitter_image').value = data.twitter_image || '';
+
+                document.getElementById('schema_type').value = data.schema_type || 'Article';
+                document.getElementById('faq_data').value = data.faq_data || '';
+
+                // Update character counts
+                updateCharCount('meta_description', 'meta_desc_count', 160);
+
+                // Success feedback
+                icon.textContent = '✅';
+                text.textContent = 'SEO fields auto-filled!';
+
+                setTimeout(() => {
+                    icon.textContent = '🤖';
+                    text.textContent = originalText;
+                    btn.disabled = false;
+                }, 2000);
+
+            } catch (error) {
+                console.error('Auto-fill SEO error:', error);
+                alert('Error: ' + error.message);
+
+                icon.textContent = '❌';
+                text.textContent = 'Failed to auto-fill';
+
+                setTimeout(() => {
+                    icon.textContent = '🤖';
+                    text.textContent = originalText;
+                    btn.disabled = false;
+                }, 2000);
+            }
+        });
 
         document.addEventListener('DOMContentLoaded', () => {
             updateCharCount('meta_description', 'meta_desc_count', 160);

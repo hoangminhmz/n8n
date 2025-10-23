@@ -292,7 +292,7 @@ function processQueue() {
             flush();
             ob_flush();
 
-            // Save post
+            // Save post with all SEO fields
             $postId = $db->insert('posts', [
                 'title' => $article['title'],
                 'slug' => $article['slug'],
@@ -307,7 +307,33 @@ function processQueue() {
                 'is_ai_generated' => 1,
                 'campaign_id' => $campaign->id,
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
+                'updated_at' => date('Y-m-d H:i:s'),
+                // SEO Meta Fields
+                'focus_keyword' => $article['focus_keyword'] ?? '',
+                'canonical_url' => $article['canonical_url'] ?? '',
+                'meta_robots' => $article['meta_robots'] ?? 'index,follow',
+                // Open Graph
+                'og_title' => $article['og_title'] ?? '',
+                'og_description' => $article['og_description'] ?? '',
+                'og_image' => $article['og_image'] ?? '',
+                // Twitter Cards
+                'twitter_title' => $article['twitter_title'] ?? '',
+                'twitter_description' => $article['twitter_description'] ?? '',
+                'twitter_image' => $article['twitter_image'] ?? '',
+                // Schema
+                'schema_type' => $article['schema_type'] ?? 'Article',
+                'faq_data' => $article['faq_data'] ?? '',
+                // Content Metrics
+                'word_count' => $article['word_count'] ?? 0,
+                'reading_time' => $article['reading_time'] ?? 0,
+                'readability_score' => $article['readability_score'] ?? 0,
+                'internal_links_count' => $article['internal_links_count'] ?? 0,
+                'external_links_count' => $article['external_links_count'] ?? 0,
+                'images_count' => $article['images_count'] ?? 0,
+                'has_table_of_contents' => $article['has_table_of_contents'] ?? 0,
+                // SEO Score
+                'seo_score' => $article['seo_score'] ?? 0,
+                'last_seo_check' => date('Y-m-d H:i:s')
             ]);
 
             // Update queue
