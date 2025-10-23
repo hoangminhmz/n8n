@@ -162,13 +162,13 @@ function generateSEOMetadata($title, $content, $focusKeyword) {
         $providerFile = '';
         switch ($campaign->ai_provider) {
             case 'openai':
-                $providerFile = SITE_PATH . '/core/AI/Providers/OpenAIProvider.php';
+                $providerFile = SITE_PATH . '/core/AI/OpenAIProvider.php';
                 break;
             case 'claude':
-                $providerFile = SITE_PATH . '/core/AI/Providers/ClaudeProvider.php';
+                $providerFile = SITE_PATH . '/core/AI/ClaudeProvider.php';
                 break;
             case 'gemini':
-                $providerFile = SITE_PATH . '/core/AI/Providers/GeminiProvider.php';
+                $providerFile = SITE_PATH . '/core/AI/GeminiProvider.php';
                 break;
             default:
                 throw new Exception('Unknown AI provider: ' . $campaign->ai_provider);
