@@ -1,88 +1,88 @@
--- LightBlog CMS - Pages System Migration
+-- LightBlog CMS - Pages System Migration (MySQL/MariaDB)
 -- Add support for static pages (About, Contact, etc.)
 
 -- Pages table
-CREATE TABLE IF NOT EXISTS pages (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+CREATE TABLE IF NOT EXISTS `pages` (
+    `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
 
     -- Basic info
-    title TEXT NOT NULL,
-    slug TEXT UNIQUE NOT NULL,
-    content TEXT,
-    excerpt TEXT,
+    `title` VARCHAR(255) NOT NULL,
+    `slug` VARCHAR(255) NOT NULL,
+    `content` LONGTEXT,
+    `excerpt` TEXT,
 
     -- Hierarchy
-    parent_id INTEGER DEFAULT 0,
-    menu_order INTEGER DEFAULT 0,
+    `parent_id` INT(11) DEFAULT 0,
+    `menu_order` INT(11) DEFAULT 0,
 
     -- Template & Styling
-    template TEXT DEFAULT 'default',
-    custom_css TEXT,
-    custom_js TEXT,
+    `template` VARCHAR(50) DEFAULT 'default',
+    `custom_css` TEXT,
+    `custom_js` TEXT,
 
     -- Content mode
-    content_mode TEXT DEFAULT 'html',  -- 'html', 'markdown', 'ai'
+    `content_mode` VARCHAR(20) DEFAULT 'html',  -- 'html', 'markdown', 'ai'
 
     -- AI Generation (for future use)
-    ai_prompt TEXT,
-    ai_generated INTEGER DEFAULT 0,
-    ai_provider TEXT,
-    ai_model TEXT,
-    template_style TEXT,
-    last_generated_at DATETIME,
-    generation_count INTEGER DEFAULT 0,
+    `ai_prompt` TEXT,
+    `ai_generated` TINYINT(1) DEFAULT 0,
+    `ai_provider` VARCHAR(50),
+    `ai_model` VARCHAR(50),
+    `template_style` VARCHAR(50),
+    `last_generated_at` DATETIME,
+    `generation_count` INT(11) DEFAULT 0,
 
     -- Metadata
-    author_id INTEGER,
-    status TEXT DEFAULT 'draft',  -- draft, published, private
-    visibility TEXT DEFAULT 'public',  -- public, private, password
-    password TEXT,
+    `author_id` INT(11),
+    `status` VARCHAR(20) DEFAULT 'draft',  -- draft, published, private
+    `visibility` VARCHAR(20) DEFAULT 'public',  -- public, private, password
+    `password` VARCHAR(255),
 
     -- SEO fields (same as posts)
-    seo_title TEXT,
-    meta_description TEXT,
-    canonical_url TEXT,
-    meta_robots TEXT DEFAULT 'index,follow',
-    focus_keyword TEXT,
+    `seo_title` VARCHAR(255),
+    `meta_description` TEXT,
+    `canonical_url` VARCHAR(500),
+    `meta_robots` VARCHAR(50) DEFAULT 'index,follow',
+    `focus_keyword` VARCHAR(255),
 
     -- Open Graph
-    og_title TEXT,
-    og_description TEXT,
-    og_image TEXT,
+    `og_title` VARCHAR(255),
+    `og_description` TEXT,
+    `og_image` VARCHAR(500),
 
     -- Twitter Cards
-    twitter_title TEXT,
-    twitter_description TEXT,
-    twitter_image TEXT,
+    `twitter_title` VARCHAR(255),
+    `twitter_description` TEXT,
+    `twitter_image` VARCHAR(500),
 
     -- Schema
-    schema_type TEXT DEFAULT 'WebPage',
+    `schema_type` VARCHAR(50) DEFAULT 'WebPage',
 
     -- Timestamps
-    created_at DATETIME,
-    updated_at DATETIME,
-    published_at DATETIME,
+    `created_at` DATETIME,
+    `updated_at` DATETIME,
+    `published_at` DATETIME,
 
     -- Stats
-    views INTEGER DEFAULT 0
-);
+    `views` INT(11) DEFAULT 0,
 
--- Indexes for performance
-CREATE INDEX IF NOT EXISTS idx_pages_slug ON pages(slug);
-CREATE INDEX IF NOT EXISTS idx_pages_status ON pages(status);
-CREATE INDEX IF NOT EXISTS idx_pages_parent ON pages(parent_id);
-CREATE INDEX IF NOT EXISTS idx_pages_menu_order ON pages(menu_order);
-CREATE INDEX IF NOT EXISTS idx_pages_published ON pages(published_at);
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `slug` (`slug`),
+    KEY `idx_pages_status` (`status`),
+    KEY `idx_pages_parent` (`parent_id`),
+    KEY `idx_pages_menu_order` (`menu_order`),
+    KEY `idx_pages_published` (`published_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Insert sample pages
-INSERT INTO pages (title, slug, content, status, published_at, created_at, seo_title, meta_description)
+INSERT INTO `pages` (`title`, `slug`, `content`, `status`, `published_at`, `created_at`, `seo_title`, `meta_description`)
 VALUES
 ('About Us', 'about',
 '<h1>About Us</h1>
 <p>Welcome to our blog! We are passionate about creating quality content.</p>
 <h2>Our Mission</h2>
 <p>To provide valuable insights and information to our readers.</p>',
-'published', datetime('now'), datetime('now'),
+'published', NOW(), NOW(),
 'About Us - Learn More About Our Blog',
 'Learn more about our mission, values, and the team behind our blog.'
 ),
@@ -95,7 +95,7 @@ VALUES
 <li><strong>Email:</strong> contact@example.com</li>
 <li><strong>Twitter:</strong> @example</li>
 </ul>',
-'published', datetime('now'), datetime('now'),
+'published', NOW(), NOW(),
 'Contact Us - Get in Touch',
 'Contact us for inquiries, feedback, or collaboration opportunities.'
 );
