@@ -158,21 +158,41 @@ function generateSEOMetadata($title, $content, $focusKeyword) {
         $provider = null;
         $model = $campaign->ai_model;
 
+        // Check if provider file exists before requiring
+        $providerFile = '';
         switch ($campaign->ai_provider) {
             case 'openai':
-                require_once SITE_PATH . '/core/AI/Providers/OpenAIProvider.php';
-                $provider = new OpenAIProvider($campaign->ai_api_key, $model);
+                $providerFile = SITE_PATH . '/core/AI/Providers/OpenAIProvider.php';
                 break;
             case 'claude':
-                require_once SITE_PATH . '/core/AI/Providers/ClaudeProvider.php';
-                $provider = new ClaudeProvider($campaign->ai_api_key, $model);
+                $providerFile = SITE_PATH . '/core/AI/Providers/ClaudeProvider.php';
                 break;
             case 'gemini':
-                require_once SITE_PATH . '/core/AI/Providers/GeminiProvider.php';
-                $provider = new GeminiProvider($campaign->ai_api_key, $model);
+                $providerFile = SITE_PATH . '/core/AI/Providers/GeminiProvider.php';
                 break;
             default:
                 throw new Exception('Unknown AI provider: ' . $campaign->ai_provider);
+        }
+
+        // If provider file doesn't exist, use manual generation
+        if (!file_exists($providerFile)) {
+            error_log("AI provider file not found: $providerFile - using manual generation");
+            return generateSEOMetadataManual($title, $content, $focusKeyword);
+        }
+
+        require_once $providerFile;
+
+        // Create provider instance
+        switch ($campaign->ai_provider) {
+            case 'openai':
+                $provider = new OpenAIProvider($campaign->ai_api_key, $model);
+                break;
+            case 'claude':
+                $provider = new ClaudeProvider($campaign->ai_api_key, $model);
+                break;
+            case 'gemini':
+                $provider = new GeminiProvider($campaign->ai_api_key, $model);
+                break;
         }
 
         // Create prompt for SEO metadata generation
