@@ -21,7 +21,8 @@
     </div>
 
     <div class="section">
-        <button onclick="testAjax()">🧪 Test AJAX Endpoint</button>
+        <button onclick="testAjax('ajax-autofill-seo.php')">🧪 Test AJAX Endpoint (Production)</button>
+        <button onclick="testAjax('ajax-autofill-seo-debug.php')" style="background: orange; color: white;">🔍 Test Debug Endpoint (Shows Errors)</button>
     </div>
 
     <div id="result" class="section" style="display:none;">
@@ -41,7 +42,7 @@
     </div>
 
     <script>
-        async function testAjax() {
+        async function testAjax(endpoint = 'ajax-autofill-seo.php') {
             const resultDiv = document.getElementById('result');
             const errorDiv = document.getElementById('error');
 
@@ -56,10 +57,10 @@
             };
 
             try {
-                console.log('Sending AJAX request...');
+                console.log('Sending AJAX request to:', endpoint);
                 console.log('Data:', testData);
 
-                const response = await fetch('ajax-autofill-seo.php', {
+                const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
