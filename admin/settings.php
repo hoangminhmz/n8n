@@ -19,7 +19,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     // Update settings in database
     $settingsToUpdate = [
         'site_name', 'site_tagline', 'posts_per_page', 'timezone',
-        'openai_api_key', 'claude_api_key', 'gemini_api_key',
+        'openai_api_key', 'claude_api_key', 'gemini_api_key', 'unsplash_api_key',
+        'image_ai_provider', 'content_ai_provider',
         'autoblog_enabled'
     ];
 
@@ -57,6 +58,7 @@ function updateConfigFile($data) {
         'OPENAI_API_KEY' => $data['openai_api_key'] ?? '',
         'CLAUDE_API_KEY' => $data['claude_api_key'] ?? '',
         'GEMINI_API_KEY' => $data['gemini_api_key'] ?? '',
+        'UNSPLASH_API_KEY' => $data['unsplash_api_key'] ?? '',
         'AUTOBLOG_ENABLED' => isset($data['autoblog_enabled']) && $data['autoblog_enabled'] ? 'true' : 'false'
     ];
 
@@ -150,6 +152,59 @@ include __DIR__ . '/includes/header.php';
                 value="<?= htmlspecialchars(getSetting('gemini_api_key', defined('GEMINI_API_KEY') ? GEMINI_API_KEY : '')) ?>"
                 placeholder="AIza...">
             <small>Get your API key from <a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a></small>
+        </div>
+
+        <div class="form-group">
+            <label>Unsplash API Key (Free Stock Photos)</label>
+            <input type="password" name="unsplash_api_key"
+                value="<?= htmlspecialchars(getSetting('unsplash_api_key', defined('UNSPLASH_API_KEY') ? UNSPLASH_API_KEY : '')) ?>"
+                placeholder="Access Key...">
+            <small>Get your free API key from <a href="https://unsplash.com/developers" target="_blank">Unsplash Developers</a> (500 requests/hour)</small>
+        </div>
+
+        <hr style="margin: 2rem 0;">
+        <h3 style="margin-bottom: 1rem;">AI Provider Selection</h3>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label>Image Generation Provider</label>
+                <select name="image_ai_provider">
+                    <?php
+                    $imageProviders = [
+                        'auto' => 'Auto-detect (Unsplash → OpenAI → PHP GD)',
+                        'unsplash' => 'Unsplash (Free stock photos)',
+                        'openai' => 'OpenAI DALL-E 3 ($0.04/image)',
+                        'php-gd' => 'PHP GD (Free, text overlay)'
+                    ];
+                    $currentImage = getSetting('image_ai_provider', 'auto');
+                    foreach ($imageProviders as $value => $label) {
+                        $selected = $value === $currentImage ? 'selected' : '';
+                        echo "<option value=\"{$value}\" {$selected}>{$label}</option>";
+                    }
+                    ?>
+                </select>
+                <small>Used for generating post thumbnails/featured images</small>
+            </div>
+
+            <div class="form-group">
+                <label>Content Generation Provider</label>
+                <select name="content_ai_provider">
+                    <?php
+                    $contentProviders = [
+                        'auto' => 'Auto-detect (Gemini → Claude → OpenAI)',
+                        'gemini' => 'Google Gemini (Cheapest, fast)',
+                        'claude' => 'Anthropic Claude (Balanced)',
+                        'openai' => 'OpenAI GPT-4 (Most capable)'
+                    ];
+                    $currentContent = getSetting('content_ai_provider', 'auto');
+                    foreach ($contentProviders as $value => $label) {
+                        $selected = $value === $currentContent ? 'selected' : '';
+                        echo "<option value=\"{$value}\" {$selected}>{$label}</option>";
+                    }
+                    ?>
+                </select>
+                <small>Used for AI content generation and auto-blogging</small>
+            </div>
         </div>
 
         <div class="alert alert-info">

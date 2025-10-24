@@ -35,9 +35,11 @@ class ImageGenerator {
      * Initialize AI provider based on preference and availability
      */
     private function initializeProvider() {
-        // If 'auto', try OpenAI first (best image quality), then others
+        // If 'auto', try providers in order: Unsplash (free) -> OpenAI (best quality) -> PHP GD
         if ($this->preferredProvider === 'auto') {
-            if (!empty(OPENAI_API_KEY)) {
+            if (defined('UNSPLASH_API_KEY') && !empty(UNSPLASH_API_KEY)) {
+                $this->preferredProvider = 'unsplash';
+            } elseif (!empty(OPENAI_API_KEY)) {
                 $this->preferredProvider = 'openai';
             } elseif (!empty(GEMINI_API_KEY)) {
                 $this->preferredProvider = 'gemini';
@@ -51,6 +53,14 @@ class ImageGenerator {
         // Load provider
         try {
             switch ($this->preferredProvider) {
+                case 'unsplash':
+                    if (!defined('UNSPLASH_API_KEY') || empty(UNSPLASH_API_KEY)) {
+                        throw new Exception('Unsplash API key not configured');
+                    }
+                    require_once __DIR__ . '/UnsplashProvider.php';
+                    $this->provider = new UnsplashProvider(UNSPLASH_API_KEY);
+                    break;
+
                 case 'openai':
                     if (empty(OPENAI_API_KEY)) {
                         throw new Exception('OpenAI API key not configured');
@@ -99,9 +109,19 @@ class ImageGenerator {
         $quality = $options['quality'] ?? 'standard';
         $style = $options['style'] ?? 'professional';
 
-        // Try AI generation first
+        // Try provider-specific generation
         if ($this->provider) {
             try {
+                // Unsplash uses different method (search and download)
+                if ($this->preferredProvider === 'unsplash') {
+                    $query = $this->extractSearchQuery($title);
+                    $result = $this->provider->searchAndDownload($query, [
+                        'orientation' => 'landscape'
+                    ]);
+                    return $result;
+                }
+
+                // AI providers (OpenAI, Gemini, Claude) use generateImage()
                 $prompt = $this->createImagePrompt($title, $style);
 
                 $result = $this->provider->generateImage($prompt, [
@@ -110,7 +130,7 @@ class ImageGenerator {
                     'style' => $style === 'professional' ? 'natural' : 'vivid'
                 ]);
 
-                // Download and save the image locally
+                // Download and save the image locally (for AI providers)
                 if (!empty($result['image_url'])) {
                     $localUrl = $this->downloadAndSaveImage($result['image_url'], $title);
                     if ($localUrl) {
@@ -123,13 +143,32 @@ class ImageGenerator {
                 return $result;
 
             } catch (Exception $e) {
-                error_log('ImageGenerator: AI generation failed: ' . $e->getMessage());
+                error_log('ImageGenerator: Provider generation failed: ' . $e->getMessage());
                 // Fall through to PHP GD fallback
             }
         }
 
         // Fallback to PHP GD generation
         return $this->generateWithPHPGD($title, $size);
+    }
+
+    /**
+     * Extract search query from title for Unsplash
+     * @param string $title Post title
+     * @return string Search query
+     */
+    private function extractSearchQuery($title) {
+        // Remove common words
+        $cleanTitle = preg_replace('/^(how to|guide to|introduction to|what is|why|when|where)\s+/i', '', $title);
+
+        // Remove special characters
+        $cleanTitle = preg_replace('/[^\w\s]/', '', $cleanTitle);
+
+        // Limit to 3-4 main keywords
+        $words = explode(' ', $cleanTitle);
+        $keywords = array_slice($words, 0, 4);
+
+        return implode(' ', $keywords);
     }
 
     /**

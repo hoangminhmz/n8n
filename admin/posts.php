@@ -221,14 +221,21 @@ include __DIR__ . '/includes/header.php';
             <form method="POST" id="bulkForm">
                 <!-- Bulk Actions Bar -->
                 <div style="display: flex; gap: 1rem; align-items: center; padding: 1rem; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
-                    <select name="bulk_action" id="bulkAction" class="form-control" style="width: 200px;">
+                    <select name="bulk_action" id="bulkAction" class="form-control" style="width: 250px;">
                         <option value="">Bulk Actions</option>
-                        <option value="publish">Publish</option>
-                        <option value="draft">Set to Draft</option>
-                        <option value="delete">Delete</option>
+                        <optgroup label="Status">
+                            <option value="publish">Publish</option>
+                            <option value="draft">Set to Draft</option>
+                            <option value="delete">Delete</option>
+                        </optgroup>
+                        <optgroup label="AI Operations">
+                            <option value="generate_thumbnails">Auto Generate Thumbnails</option>
+                            <option value="generate_seo">Auto Generate SEO Data</option>
+                        </optgroup>
                     </select>
-                    <button type="submit" class="btn btn-primary" onclick="return confirmBulkAction()">Apply</button>
+                    <button type="submit" class="btn btn-primary" onclick="return confirmBulkAction(event)">Apply</button>
                     <span id="selectedCount" style="color: #6b7280; font-size: 0.875rem;"></span>
+                    <span id="bulkProgress" style="display: none; color: #3b82f6; font-size: 0.875rem;">Processing...</span>
                 </div>
 
                 <div class="table-container">
@@ -342,27 +349,83 @@ include __DIR__ . '/includes/header.php';
                     selectAllCheckbox.indeterminate = checked > 0 && checked < total;
                 }
 
-                function confirmBulkAction() {
+                async function confirmBulkAction(event) {
                     const action = document.getElementById('bulkAction').value;
-                    const checked = document.querySelectorAll('.post-checkbox:checked').length;
+                    const checked = document.querySelectorAll('.post-checkbox:checked');
 
                     if (!action) {
                         alert('Please select an action from the dropdown.');
                         return false;
                     }
 
-                    if (checked === 0) {
+                    if (checked.length === 0) {
                         alert('Please select at least one post.');
                         return false;
                     }
 
+                    // AI Operations - handle via AJAX
+                    if (action === 'generate_thumbnails' || action === 'generate_seo') {
+                        event.preventDefault();
+
+                        const actionNames = {
+                            'generate_thumbnails': 'generate thumbnails for',
+                            'generate_seo': 'generate SEO data for'
+                        };
+
+                        if (!confirm(`Generate AI content for ${checked.length} post(s)? This may take a few minutes.`)) {
+                            return false;
+                        }
+
+                        // Get post IDs
+                        const postIds = Array.from(checked).map(cb => parseInt(cb.value));
+
+                        // Show progress
+                        const progressEl = document.getElementById('bulkProgress');
+                        const applyBtn = event.target;
+                        applyBtn.disabled = true;
+                        progressEl.style.display = 'inline';
+                        progressEl.textContent = 'Processing...';
+
+                        try {
+                            const response = await fetch('ajax-bulk-operations.php', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    operation: action,
+                                    post_ids: postIds
+                                })
+                            });
+
+                            const result = await response.json();
+
+                            if (result.success) {
+                                alert(`Success!\nProcessed: ${result.processed}\nFailed: ${result.failed}\nTotal: ${result.total}`);
+                                location.reload();
+                            } else {
+                                alert('Error: ' + result.error);
+                            }
+
+                        } catch (error) {
+                            console.error('Bulk operation error:', error);
+                            alert('Error: ' + error.message);
+                        } finally {
+                            applyBtn.disabled = false;
+                            progressEl.style.display = 'none';
+                        }
+
+                        return false;
+                    }
+
+                    // Standard operations - normal form submit
                     const actionNames = {
                         'delete': 'delete',
                         'publish': 'publish',
                         'draft': 'set to draft'
                     };
 
-                    return confirm(`Are you sure you want to ${actionNames[action]} ${checked} post(s)?`);
+                    return confirm(`Are you sure you want to ${actionNames[action]} ${checked.length} post(s)?`);
                 }
 
                 // Initialize count on page load
