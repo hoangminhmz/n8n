@@ -134,26 +134,33 @@ class ImageGenerator {
 
     /**
      * Create optimized prompt for image generation
+     * Creates REAL topical images (no text overlay) for better SEO
      * @param string $title Post title
      * @param string $style Style (professional, creative, minimal, vibrant)
      * @return string
      */
     private function createImagePrompt($title, $style = 'professional') {
         $styleDescriptions = [
-            'professional' => 'professional, clean, modern, business-like',
-            'creative' => 'creative, artistic, imaginative, colorful',
-            'minimal' => 'minimalist, simple, elegant, clean lines',
-            'vibrant' => 'vibrant, energetic, bold colors, dynamic'
+            'professional' => 'professional, high-quality, clean composition, business photography style',
+            'creative' => 'creative, artistic, imaginative, vibrant and colorful illustration style',
+            'minimal' => 'minimalist, simple, elegant, clean and modern aesthetic',
+            'vibrant' => 'vibrant, energetic, bold colors, dynamic and eye-catching'
         ];
 
         $styleDesc = $styleDescriptions[$style] ?? $styleDescriptions['professional'];
 
-        // Create a clear, descriptive prompt
-        $prompt = "Create a {$styleDesc} featured image for a blog post titled: \"{$title}\". ";
-        $prompt .= "The image should be eye-catching and relevant to the topic. ";
-        $prompt .= "Include text overlay with the title in large, readable font. ";
-        $prompt .= "Use a gradient or solid color background. ";
-        $prompt .= "Make it suitable for social media sharing (1200x630px).";
+        // Extract the core concept/topic from the title
+        // Remove common words like "How to", "Guide to", "Introduction to", etc.
+        $cleanTitle = preg_replace('/^(how to|guide to|introduction to|what is|why|when|where)\s+/i', '', $title);
+
+        // Create a prompt for ACTUAL topical imagery (no text!)
+        // This is much better for SEO than text overlays
+        $prompt = "Create a {$styleDesc} image that visually represents: {$cleanTitle}. ";
+        $prompt .= "The image should be a high-quality photograph or illustration directly related to this topic. ";
+        $prompt .= "NO TEXT, NO WORDS, NO LETTERS anywhere in the image. ";
+        $prompt .= "Focus on visual storytelling - show the concept through imagery alone. ";
+        $prompt .= "Eye-catching, professional, suitable for blog featured image and social media. ";
+        $prompt .= "16:9 aspect ratio, cinematic composition, visually appealing.";
 
         return $prompt;
     }
