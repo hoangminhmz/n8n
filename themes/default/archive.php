@@ -1,6 +1,7 @@
 <?php get_header(); ?>
 
-<div class="archive-page">
+<div class="container">
+    <div class="archive-page">
     <h1>
         <?php if (isset($category)): ?>
             Category: <?= htmlspecialchars($category->name) ?>
@@ -38,6 +39,7 @@
             <?php endforeach; ?>
         </div>
     <?php endif; ?>
+    </div>
 </div>
 
 <?php get_footer(); ?>
