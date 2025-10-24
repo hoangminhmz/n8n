@@ -723,6 +723,192 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 - **Database:** User-friendly UI, easily editable
 - **config.php:** Persistence across database resets, constant definitions
 
+#### 5. Backup & Restore (`admin/backup.php`)
+
+**Purpose:** Complete site backup and restore functionality for disaster recovery and migration.
+
+**Features:**
+- Create complete backup (source code + database)
+- Download backup as ZIP file
+- One-click restore from backup ZIP
+- Automatic API key sanitization for security
+- Automatic rollback on restore failure
+
+**Backup Process:**
+
+```php
+// admin/backup.php
+function createBackup() {
+    // 1. Export database to SQL
+    exportDatabase($tempDir . '/database.sql');
+
+    // 2. Create backup metadata
+    $metadata = [
+        'version' => '1.0',
+        'date' => date('Y-m-d H:i:s'),
+        'site_name' => SITE_NAME,
+        'database_size' => filesize($dbFile)
+    ];
+
+    // 3. Create ZIP with source code + database
+    $zip = new ZipArchive();
+    $zip->addFile($dbFile, 'database.sql');
+    $zip->addFile($metadataFile, 'backup_info.json');
+
+    // 4. Add source files (sanitize config.php)
+    foreach ($sourceFiles as $file) {
+        if ($file === 'config.php') {
+            // Remove API keys for security
+            $content = preg_replace(
+                "/(define\(['\"].*API_KEY['\"],\s*['\"])([^'\"]*)/",
+                "$1YOUR_API_KEY_HERE",
+                $content
+            );
+            $zip->addFromString('source/' . $file, $content);
+        } else {
+            $zip->addFile($file, 'source/' . $file);
+        }
+    }
+
+    $zip->close();
+    return ['success' => true, 'file' => $zipFile];
+}
+```
+
+**Restore Process:**
+
+```php
+function restoreFromBackup($zipFile) {
+    // 1. Validate ZIP structure
+    if (!file_exists($tempDir . '/database.sql')) {
+        return ['success' => false, 'message' => 'Invalid backup'];
+    }
+
+    // 2. Create rollback point (current database)
+    $rollbackDir = sys_get_temp_dir() . '/lightblog_rollback_' . time();
+    exportDatabase($rollbackDir . '/database.sql');
+
+    try {
+        // 3. Restore database
+        $sql = file_get_contents($tempDir . '/database.sql');
+        $queries = array_filter(array_map('trim', explode(';', $sql)));
+        foreach ($queries as $query) {
+            $db->query($query);
+        }
+
+        // 4. Restore source code (skip config.php)
+        foreach ($sourceFiles as $file) {
+            if ($file !== 'config.php') {
+                copy($tempFile, $targetFile);
+            }
+        }
+
+        return ['success' => true];
+
+    } catch (Exception $e) {
+        // Rollback on error
+        $sql = file_get_contents($rollbackDir . '/database.sql');
+        // ... restore from rollback
+        return ['success' => false, 'rolled_back' => true];
+    }
+}
+```
+
+**UI Integration:**
+
+```javascript
+// admin/settings.php (frontend)
+document.getElementById('createBackupBtn').addEventListener('click', async function() {
+    const response = await fetch('backup.php', {
+        method: 'POST',
+        body: 'action=create_backup'
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+        // Show download button
+        window.location.href = 'backup.php?action=download_backup';
+    }
+});
+
+document.getElementById('restoreForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    if (!confirm('⚠️ This will replace ALL current data. Continue?')) {
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('action', 'restore_backup');
+    formData.append('backup_file', fileInput.files[0]);
+
+    const response = await fetch('backup.php', {
+        method: 'POST',
+        body: formData
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+        alert('✅ Restore completed! Please re-enter API keys.');
+        location.reload();
+    }
+});
+```
+
+**Security Features:**
+- API keys removed from backups (sanitized)
+- Database credentials sanitized
+- Automatic rollback on restore failure
+- File size validation (500MB limit)
+- ZIP structure validation
+- User confirmation required for restore
+
+**Backup Contents:**
+```
+lightblog_backup_2025-10-24_12-00-00.zip
+├── README.txt                    # Restore instructions
+├── backup_info.json              # Metadata (version, date, size)
+├── database.sql                  # Complete database dump
+└── source/                       # Source code
+    ├── admin/
+    ├── core/
+    ├── themes/
+    ├── install/
+    ├── index.php
+    └── config.php                # API keys removed
+```
+
+**Excluded from Backup:**
+- `content/uploads/` - Large files (backup separately if needed)
+- `.git/` - Version control history
+- `node_modules/` - Development dependencies
+- `.env` - Environment files
+- `error_log` - Log files
+
+**Use Cases:**
+- Before major updates
+- Daily/weekly automated backups (via cron)
+- Site migration to new server
+- Disaster recovery
+- Testing restore process
+
+**Automated Backup (Cron):**
+```bash
+# Daily backup at 2 AM
+0 2 * * * php /var/www/lightblog/admin/backup.php --action=create_backup --output=/backups/ >> /var/log/backup.log 2>&1
+```
+
+**For Commercial Distribution:**
+- White-label backup branding
+- Backup usage limits by tier (free: 1/month, pro: unlimited)
+- Cloud backup integration (AWS S3, Google Drive, Dropbox)
+- Automated backup scheduling UI
+- Backup retention policies
+
+See **BACKUP-RESTORE.md** for complete documentation.
+
 ---
 
 ## Frontend System

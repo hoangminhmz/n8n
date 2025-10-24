@@ -289,4 +289,237 @@ include __DIR__ . '/includes/header.php';
     ?>
 </div>
 
+<!-- Backup & Restore -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Backup & Restore</h2>
+    </div>
+
+    <div class="alert alert-warning">
+        ⚠️ <strong>Important:</strong> Backup includes source code and database. API keys will be removed for security. After restore, you'll need to re-enter API keys in Settings.
+    </div>
+
+    <!-- Backup Section -->
+    <div style="margin-bottom: 2rem;">
+        <h3 style="margin-bottom: 1rem;">Create Backup</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+            Create a complete backup of your site including all source code and database. The backup will be downloaded as a ZIP file.
+        </p>
+
+        <button type="button" id="createBackupBtn" class="btn btn-primary">
+            <span id="backupBtnText">Create Backup</span>
+            <span id="backupSpinner" style="display: none;">⏳ Creating backup...</span>
+        </button>
+
+        <div id="backupResult" style="margin-top: 1rem;"></div>
+    </div>
+
+    <hr style="margin: 2rem 0; border: none; border-top: 1px solid var(--border);">
+
+    <!-- Restore Section -->
+    <div>
+        <h3 style="margin-bottom: 1rem;">Restore from Backup</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+            Upload a backup ZIP file to restore your site. <strong>WARNING:</strong> This will overwrite all current data!
+        </p>
+
+        <div class="alert alert-danger" style="margin-bottom: 1rem;">
+            🚨 <strong>Danger Zone:</strong> Restore will replace ALL current data. Make sure you have a recent backup before proceeding.
+        </div>
+
+        <form id="restoreForm" enctype="multipart/form-data">
+            <div class="form-group">
+                <label>Select Backup File (ZIP)</label>
+                <input type="file" id="backupFileInput" name="backup_file" accept=".zip" required>
+                <small>Maximum file size: 500MB</small>
+            </div>
+
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="confirmRestore" required>
+                    I understand this will overwrite all current data
+                </label>
+            </div>
+
+            <button type="submit" class="btn btn-danger">
+                <span id="restoreBtnText">Restore from Backup</span>
+                <span id="restoreSpinner" style="display: none;">⏳ Restoring...</span>
+            </button>
+        </form>
+
+        <div id="restoreResult" style="margin-top: 1rem;"></div>
+    </div>
+</div>
+
+<style>
+.alert {
+    padding: 1rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+}
+.alert-warning {
+    background-color: #fff3cd;
+    border: 1px solid #ffc107;
+    color: #856404;
+}
+.alert-danger {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+}
+.alert-success {
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+}
+.alert-info {
+    background-color: #d1ecf1;
+    border: 1px solid #bee5eb;
+    color: #0c5460;
+}
+</style>
+
+<script>
+// Create Backup
+document.getElementById('createBackupBtn').addEventListener('click', async function() {
+    const btn = this;
+    const btnText = document.getElementById('backupBtnText');
+    const spinner = document.getElementById('backupSpinner');
+    const resultDiv = document.getElementById('backupResult');
+
+    // Disable button
+    btn.disabled = true;
+    btnText.style.display = 'none';
+    spinner.style.display = 'inline';
+    resultDiv.innerHTML = '';
+
+    try {
+        const response = await fetch('backup.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'action=create_backup'
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            resultDiv.innerHTML = `
+                <div class="alert alert-success">
+                    ✅ Backup created successfully!<br>
+                    <strong>Size:</strong> ${(result.size / 1024 / 1024).toFixed(2)} MB<br>
+                    <strong>Date:</strong> ${result.metadata.date}<br>
+                    <a href="backup.php?action=download_backup" class="btn btn-primary" style="margin-top: 0.5rem;">
+                        Download Backup
+                    </a>
+                </div>
+            `;
+        } else {
+            resultDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    ❌ Backup failed: ${result.message}
+                </div>
+            `;
+        }
+    } catch (error) {
+        resultDiv.innerHTML = `
+            <div class="alert alert-danger">
+                ❌ Error: ${error.message}
+            </div>
+        `;
+    } finally {
+        btn.disabled = false;
+        btnText.style.display = 'inline';
+        spinner.style.display = 'none';
+    }
+});
+
+// Restore from Backup
+document.getElementById('restoreForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const confirmRestore = document.getElementById('confirmRestore');
+    if (!confirmRestore.checked) {
+        alert('Please confirm that you understand the restore will overwrite all data.');
+        return;
+    }
+
+    if (!confirm('⚠️ FINAL WARNING: This will replace ALL your current data. Are you absolutely sure?')) {
+        return;
+    }
+
+    const fileInput = document.getElementById('backupFileInput');
+    const restoreBtnText = document.getElementById('restoreBtnText');
+    const restoreSpinner = document.getElementById('restoreSpinner');
+    const resultDiv = document.getElementById('restoreResult');
+    const submitBtn = this.querySelector('button[type="submit"]');
+
+    // Disable form
+    submitBtn.disabled = true;
+    restoreBtnText.style.display = 'none';
+    restoreSpinner.style.display = 'inline';
+    resultDiv.innerHTML = '';
+
+    const formData = new FormData();
+    formData.append('action', 'restore_backup');
+    formData.append('backup_file', fileInput.files[0]);
+
+    try {
+        const response = await fetch('backup.php', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            resultDiv.innerHTML = `
+                <div class="alert alert-success">
+                    ✅ Restore completed successfully!<br>
+                    <strong>Restored from:</strong> ${result.metadata.date}<br>
+                    <strong>Version:</strong> ${result.metadata.version}<br><br>
+                    ⚠️ <strong>Important:</strong> Please re-enter your API keys in Settings above.<br>
+                    <button onclick="location.reload()" class="btn btn-primary" style="margin-top: 0.5rem;">
+                        Reload Page
+                    </button>
+                </div>
+            `;
+
+            // Reset form
+            this.reset();
+        } else {
+            resultDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    ❌ Restore failed: ${result.message}
+                    ${result.rolled_back ? '<br><br>✅ Database has been rolled back to previous state.' : ''}
+                </div>
+            `;
+        }
+    } catch (error) {
+        resultDiv.innerHTML = `
+            <div class="alert alert-danger">
+                ❌ Error: ${error.message}
+            </div>
+        `;
+    } finally {
+        submitBtn.disabled = false;
+        restoreBtnText.style.display = 'inline';
+        restoreSpinner.style.display = 'none';
+    }
+});
+
+// File size validation
+document.getElementById('backupFileInput').addEventListener('change', function() {
+    const file = this.files[0];
+    if (file) {
+        const maxSize = 500 * 1024 * 1024; // 500MB
+        if (file.size > maxSize) {
+            alert('File size exceeds 500MB limit. Please choose a smaller file.');
+            this.value = '';
+        }
+    }
+});
+</script>
+
 <?php include __DIR__ . '/includes/footer.php'; ?>

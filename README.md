@@ -24,6 +24,7 @@ Login: admin / password123
 ✅ 3 Image Options: Unsplash (FREE) | OpenAI | PHP GD
 ✅ 3 AI Providers: Gemini | Claude | OpenAI
 ✅ Bulk Operations (Thumbnails + SEO)
+✅ Backup & Restore (One-Click)
 ✅ Admin Settings UI
 ✅ SEO Optimization (23+ fields)
 ✅ Multi-Provider Architecture
@@ -43,6 +44,7 @@ Recommended: Unsplash + Gemini = FREE!
 - `ARCHITECTURE.md` - Technical details
 - `SETUP-OPENAI.md` - OpenAI setup guide
 - `THUMBNAIL-GUIDE.md` - Image generation
+- `BACKUP-RESTORE.md` - Backup & restore guide
 
 ## Version 1.0 Complete ✨
 
