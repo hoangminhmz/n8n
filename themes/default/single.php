@@ -1,6 +1,7 @@
 <?php get_header(); ?>
 
-<article class="post-single">
+<div class="container">
+    <article class="post-single">
     <header class="post-header">
         <h1 class="post-title"><?= the_title() ?></h1>
 
@@ -61,6 +62,7 @@
             </div>
         </section>
     <?php endif; ?>
-</article>
+    </article>
+</div>
 
 <?php get_footer(); ?>

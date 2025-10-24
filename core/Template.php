@@ -442,21 +442,21 @@ class Template {
             case 'page':
                 if ($item->object_id) {
                     $page = self::$db->queryOne("SELECT slug FROM pages WHERE id = ?", [$item->object_id]);
-                    return $page ? SITE_URL . BASE_PATH . $page->slug : '#';
+                    return $page ? SITE_URL . '/' . $page->slug : '#';
                 }
                 break;
 
             case 'category':
                 if ($item->object_id) {
                     $cat = self::$db->queryOne("SELECT slug FROM categories WHERE id = ?", [$item->object_id]);
-                    return $cat ? SITE_URL . BASE_PATH . 'category/' . $cat->slug : '#';
+                    return $cat ? SITE_URL . '/category/' . $cat->slug : '#';
                 }
                 break;
 
             case 'post':
                 if ($item->object_id) {
                     $post = self::$db->queryOne("SELECT slug FROM posts WHERE id = ?", [$item->object_id]);
-                    return $post ? SITE_URL . BASE_PATH . 'post/' . $post->slug : '#';
+                    return $post ? SITE_URL . '/post/' . $post->slug : '#';
                 }
                 break;
 

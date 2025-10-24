@@ -1,6 +1,7 @@
 <?php get_header(); ?>
 
-<div class="page-content">
+<div class="container">
+    <div class="page-content">
     <article class="page">
         <header class="page-header">
             <h1 class="page-title"><?= htmlspecialchars($page->title) ?></h1>
@@ -31,6 +32,7 @@
             </script>
         <?php endif; ?>
     </article>
+    </div>
 </div>
 
 <?php get_footer(); ?>
