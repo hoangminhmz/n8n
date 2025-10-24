@@ -163,4 +163,19 @@ class GeminiProvider extends AIProvider {
             'gemini-pro' => 'Gemini Pro (Legacy)'
         ];
     }
+
+    /**
+     * Generate image - Gemini doesn't have simple image generation yet
+     * Falls back to PHP GD-based generation
+     * @param string $prompt Text description of the image
+     * @param array $options Options (size, quality, style, campaign_id)
+     * @return array
+     */
+    public function generateImage($prompt, $options = []) {
+        // Note: Google Imagen 3 requires Vertex AI setup which is complex
+        // For now, we throw exception and let ImageGenerator fallback to PHP GD
+        // This keeps the API simple while maintaining quality
+
+        throw new Exception('Gemini provider does not support direct image generation. Please configure OpenAI API key to use AI-generated thumbnails with DALL-E 3.');
+    }
 }

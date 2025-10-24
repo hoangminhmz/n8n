@@ -48,6 +48,22 @@ abstract class AIProvider {
     abstract public function getAvailableModels();
 
     /**
+     * Generate image from text prompt
+     * @param string $prompt Text description of the image to generate
+     * @param array $options Options (size, quality, style, campaign_id)
+     * @return array ['image_url' => string, 'cost' => float, 'provider' => string]
+     */
+    abstract public function generateImage($prompt, $options = []);
+
+    /**
+     * Check if this provider supports image generation
+     * @return bool
+     */
+    public function supportsImageGeneration() {
+        return method_exists($this, 'generateImage');
+    }
+
+    /**
      * Log AI usage
      * @param int $tokens Tokens used
      * @param float $cost Cost
