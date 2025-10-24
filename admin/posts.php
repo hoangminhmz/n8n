@@ -85,6 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'slug' => $slug,
             'content' => $_POST['content'],
             'excerpt' => $_POST['excerpt'],
+            'featured_image' => $_POST['featured_image'] ?? '',
             'status' => $_POST['status'],
             'meta_description' => $_POST['meta_description'] ?? '',
             'seo_title' => $_POST['seo_title'] ?? $_POST['title'],
@@ -122,6 +123,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message = 'Post created successfully';
         }
 
+        // Save categories
+        $selectedCategories = $_POST['categories'] ?? [];
+        // Delete existing category associations
+        $db->query("DELETE FROM post_categories WHERE post_id = ?", [$postId]);
+        // Insert new category associations
+        foreach ($selectedCategories as $categoryId) {
+            $db->query("INSERT INTO post_categories (post_id, category_id) VALUES (?, ?)", [$postId, (int)$categoryId]);
+        }
+
         // Recalculate SEO metrics after save
         $savedPost = $db->queryOne("SELECT * FROM posts WHERE id = ?", [$postId]);
         $seoAnalyzer = new SEOAnalyzer();
@@ -146,8 +156,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $post = null;
 $seoMetrics = null;
 $seoRecommendations = [];
+$postCategories = [];
 if ($postId && in_array($action, ['edit', 'view'])) {
     $post = $db->queryOne("SELECT * FROM posts WHERE id = ?", [$postId]);
+
+    // Get post categories
+    $postCategories = $db->query("SELECT category_id FROM post_categories WHERE post_id = ?", [$postId]);
+    $postCategories = array_column($postCategories, 'category_id');
 
     // Calculate SEO metrics and get recommendations
     if ($post && $post->content) {
@@ -155,6 +170,12 @@ if ($postId && in_array($action, ['edit', 'view'])) {
         $seoMetrics = $seoAnalyzer->analyze($post, $post->content);
         $seoRecommendations = $seoAnalyzer->getRecommendations($post, $post->content, $seoMetrics);
     }
+}
+
+// Get all categories for the form
+$categories = [];
+if (in_array($action, ['new', 'edit'])) {
+    $categories = $db->query("SELECT * FROM categories ORDER BY name ASC");
 }
 
 // Get all posts for list
@@ -380,6 +401,23 @@ include __DIR__ . '/includes/header.php';
                 <small>Short description for archive pages</small>
             </div>
 
+            <div class="form-group">
+                <label for="featured_image">Featured Image / Thumbnail</label>
+                <div style="display: flex; gap: 0.5rem; align-items: flex-start;">
+                    <input type="url" id="featured_image" name="featured_image" value="<?= htmlspecialchars($post->featured_image ?? '') ?>" style="flex: 1;" placeholder="https://example.com/image.jpg">
+                    <button type="button" id="generateThumbnail" class="btn btn-info" style="white-space: nowrap; display: flex; align-items: center; gap: 0.5rem;">
+                        <span id="genThumbIcon">🎨</span>
+                        <span id="genThumbText">Auto Generate</span>
+                    </button>
+                </div>
+                <small>URL of the featured image for this post, or click "Auto Generate" to create one based on the title</small>
+                <?php if (!empty($post->featured_image)): ?>
+                    <div style="margin-top: 0.75rem;">
+                        <img src="<?= htmlspecialchars($post->featured_image) ?>" alt="Preview" style="max-width: 300px; border-radius: 6px; border: 1px solid #e5e7eb;">
+                    </div>
+                <?php endif; ?>
+            </div>
+
             <div class="form-row">
                 <div class="form-group">
                     <label for="status">Status *</label>
@@ -394,6 +432,27 @@ include __DIR__ . '/includes/header.php';
                     <input type="text" id="seo_title" name="seo_title" value="<?= htmlspecialchars($post->seo_title ?? $post->title ?? '') ?>">
                     <small>Recommended: 50-60 characters</small>
                 </div>
+            </div>
+
+            <div class="form-group">
+                <label>Categories</label>
+                <?php if (empty($categories)): ?>
+                    <p style="color: #6b7280; font-size: 0.875rem; margin: 0.5rem 0;">
+                        No categories available. <a href="categories.php" style="color: #3b82f6;">Create categories</a> first.
+                    </p>
+                <?php else: ?>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.75rem; padding: 1rem; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px;">
+                        <?php foreach ($categories as $cat): ?>
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.5rem; background: white; border-radius: 4px; border: 1px solid #e5e7eb;">
+                                <input type="checkbox" name="categories[]" value="<?= $cat->id ?>"
+                                       <?= in_array($cat->id, $postCategories) ? 'checked' : '' ?>
+                                       style="cursor: pointer;">
+                                <span><?= htmlspecialchars($cat->name) ?></span>
+                            </label>
+                        <?php endforeach; ?>
+                    </div>
+                    <small>Select one or more categories for this post</small>
+                <?php endif; ?>
             </div>
 
             <div class="form-group">
@@ -704,6 +763,97 @@ include __DIR__ . '/includes/header.php';
 
         document.addEventListener('DOMContentLoaded', () => {
             updateCharCount('meta_description', 'meta_desc_count', 160);
+        });
+
+        // Auto-generate thumbnail
+        document.getElementById('generateThumbnail')?.addEventListener('click', async function(e) {
+            e.preventDefault();
+
+            const title = document.getElementById('title').value;
+
+            if (!title) {
+                alert('Please enter a title first before generating a thumbnail.');
+                return;
+            }
+
+            // Show loading state
+            const btn = this;
+            const icon = document.getElementById('genThumbIcon');
+            const text = document.getElementById('genThumbText');
+            const originalText = text.textContent;
+
+            btn.disabled = true;
+            icon.textContent = '⏳';
+            text.textContent = 'Generating...';
+
+            try {
+                const response = await fetch('ajax-generate-thumbnail.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        title: title
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Server error response:', errorText);
+                    throw new Error('Server error: ' + response.status);
+                }
+
+                let result;
+                try {
+                    result = await response.json();
+                } catch (jsonError) {
+                    const responseText = await response.text();
+                    console.error('Invalid JSON response:', responseText);
+                    throw new Error('Invalid server response. Check browser console for details.');
+                }
+
+                if (!result.success) {
+                    console.error('API error:', result);
+                    throw new Error(result.error || 'Failed to generate thumbnail');
+                }
+
+                // Update the featured image URL
+                document.getElementById('featured_image').value = result.image_url;
+
+                // Show preview
+                const existingPreview = document.querySelector('#featured_image').parentElement.parentElement.querySelector('img');
+                if (existingPreview) {
+                    existingPreview.src = result.image_url;
+                } else {
+                    const previewDiv = document.createElement('div');
+                    previewDiv.style.marginTop = '0.75rem';
+                    previewDiv.innerHTML = `<img src="${result.image_url}" alt="Preview" style="max-width: 300px; border-radius: 6px; border: 1px solid #e5e7eb;">`;
+                    document.querySelector('#featured_image').parentElement.parentElement.appendChild(previewDiv);
+                }
+
+                // Success feedback
+                icon.textContent = '✅';
+                text.textContent = 'Thumbnail generated!';
+
+                setTimeout(() => {
+                    icon.textContent = '🎨';
+                    text.textContent = originalText;
+                    btn.disabled = false;
+                }, 2000);
+
+            } catch (error) {
+                console.error('Generate thumbnail error:', error);
+                alert('Error: ' + error.message);
+
+                icon.textContent = '❌';
+                text.textContent = 'Failed to generate';
+
+                setTimeout(() => {
+                    icon.textContent = '🎨';
+                    text.textContent = originalText;
+                    btn.disabled = false;
+                }, 2000);
+            }
         });
     </script>
 <?php endif; ?>
