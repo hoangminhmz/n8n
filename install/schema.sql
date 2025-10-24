@@ -236,3 +236,207 @@ CREATE INDEX IF NOT EXISTS idx_ai_queue_scheduled ON ai_queue(scheduled_for);
 CREATE INDEX IF NOT EXISTS idx_affiliate_clicks_post ON affiliate_clicks(post_id);
 CREATE INDEX IF NOT EXISTS idx_affiliate_clicks_product ON affiliate_clicks(product_id);
 CREATE INDEX IF NOT EXISTS idx_campaigns_status ON campaigns(status);
+-- LightBlog CMS - Pages System Migration (MySQL/MariaDB)
+-- Add support for static pages (About, Contact, etc.)
+
+-- Pages table
+CREATE TABLE IF NOT EXISTS `pages` (
+    `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+
+    -- Basic info
+    `title` VARCHAR(255) NOT NULL,
+    `slug` VARCHAR(255) NOT NULL,
+    `content` LONGTEXT,
+    `excerpt` TEXT,
+
+    -- Hierarchy
+    `parent_id` INT(11) DEFAULT 0,
+    `menu_order` INT(11) DEFAULT 0,
+
+    -- Template & Styling
+    `template` VARCHAR(50) DEFAULT 'default',
+    `custom_css` TEXT,
+    `custom_js` TEXT,
+
+    -- Content mode
+    `content_mode` VARCHAR(20) DEFAULT 'html',  -- 'html', 'markdown', 'ai'
+
+    -- AI Generation (for future use)
+    `ai_prompt` TEXT,
+    `ai_generated` TINYINT(1) DEFAULT 0,
+    `ai_provider` VARCHAR(50),
+    `ai_model` VARCHAR(50),
+    `template_style` VARCHAR(50),
+    `last_generated_at` DATETIME,
+    `generation_count` INT(11) DEFAULT 0,
+
+    -- Metadata
+    `author_id` INT(11),
+    `status` VARCHAR(20) DEFAULT 'draft',  -- draft, published, private
+    `visibility` VARCHAR(20) DEFAULT 'public',  -- public, private, password
+    `password` VARCHAR(255),
+
+    -- SEO fields (same as posts)
+    `seo_title` VARCHAR(255),
+    `meta_description` TEXT,
+    `canonical_url` VARCHAR(500),
+    `meta_robots` VARCHAR(50) DEFAULT 'index,follow',
+    `focus_keyword` VARCHAR(255),
+
+    -- Open Graph
+    `og_title` VARCHAR(255),
+    `og_description` TEXT,
+    `og_image` VARCHAR(500),
+
+    -- Twitter Cards
+    `twitter_title` VARCHAR(255),
+    `twitter_description` TEXT,
+    `twitter_image` VARCHAR(500),
+
+    -- Schema
+    `schema_type` VARCHAR(50) DEFAULT 'WebPage',
+
+    -- Timestamps
+    `created_at` DATETIME,
+    `updated_at` DATETIME,
+    `published_at` DATETIME,
+
+    -- Stats
+    `views` INT(11) DEFAULT 0,
+
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `slug` (`slug`),
+    KEY `idx_pages_status` (`status`),
+    KEY `idx_pages_parent` (`parent_id`),
+    KEY `idx_pages_menu_order` (`menu_order`),
+    KEY `idx_pages_published` (`published_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Insert sample pages
+INSERT INTO `pages` (`title`, `slug`, `content`, `status`, `published_at`, `created_at`, `seo_title`, `meta_description`)
+VALUES
+('About Us', 'about',
+'<h1>About Us</h1>
+<p>Welcome to our blog! We are passionate about creating quality content.</p>
+<h2>Our Mission</h2>
+<p>To provide valuable insights and information to our readers.</p>',
+'published', NOW(), NOW(),
+'About Us - Learn More About Our Blog',
+'Learn more about our mission, values, and the team behind our blog.'
+),
+
+('Contact', 'contact',
+'<h1>Contact Us</h1>
+<p>Get in touch with us for inquiries, feedback, or collaboration opportunities.</p>
+<h2>Contact Information</h2>
+<ul>
+<li><strong>Email:</strong> contact@example.com</li>
+<li><strong>Twitter:</strong> @example</li>
+</ul>',
+'published', NOW(), NOW(),
+'Contact Us - Get in Touch',
+'Contact us for inquiries, feedback, or collaboration opportunities.'
+);
+-- LightBlog CMS - Menu System Migration (MySQL/MariaDB)
+-- Add support for navigation menus
+
+-- Menus table (menu locations)
+CREATE TABLE IF NOT EXISTS `menus` (
+    `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `name` VARCHAR(255) NOT NULL,
+    `location` VARCHAR(50),          -- 'primary', 'footer', 'mobile', 'sidebar'
+    `description` TEXT,
+    `created_at` DATETIME,
+    `updated_at` DATETIME,
+    PRIMARY KEY (`id`),
+    KEY `idx_menus_location` (`location`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Menu Items table
+CREATE TABLE IF NOT EXISTS `menu_items` (
+    `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `menu_id` INT(11) UNSIGNED NOT NULL,
+
+    -- Item type & target
+    `type` VARCHAR(20) NOT NULL,     -- 'page', 'category', 'post', 'custom'
+    `object_id` INT(11),             -- ID of page/category/post
+    `custom_url` VARCHAR(500),       -- For custom links
+
+    -- Display
+    `title` VARCHAR(255) NOT NULL,   -- Label to display
+    `css_classes` VARCHAR(255),      -- Custom CSS classes
+    `target` VARCHAR(20) DEFAULT '_self',  -- _self, _blank
+
+    -- Hierarchy
+    `parent_id` INT(11) DEFAULT 0,   -- For dropdown menus
+    `menu_order` INT(11) DEFAULT 0,  -- Sort order
+
+    `created_at` DATETIME,
+
+    PRIMARY KEY (`id`),
+    KEY `idx_menu_items_menu` (`menu_id`),
+    KEY `idx_menu_items_order` (`menu_order`),
+    KEY `idx_menu_items_parent` (`parent_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Add icon field to categories (for menu display)
+ALTER TABLE `categories` ADD COLUMN `icon` VARCHAR(50) DEFAULT NULL;
+ALTER TABLE `categories` ADD COLUMN `display_in_menu` TINYINT(1) DEFAULT 1;
+
+-- Insert default menus
+INSERT INTO `menus` (`name`, `location`, `description`, `created_at`)
+VALUES
+('Primary Menu', 'primary', 'Main navigation menu in header', NOW()),
+('Footer Menu', 'footer', 'Footer navigation menu', NOW());
+
+-- Get the primary menu ID
+SET @primary_menu_id = (SELECT `id` FROM `menus` WHERE `location` = 'primary' LIMIT 1);
+
+-- Insert default menu items (Home + sample pages if they exist)
+INSERT INTO `menu_items` (`menu_id`, `type`, `object_id`, `custom_url`, `title`, `menu_order`, `created_at`)
+VALUES
+(@primary_menu_id, 'custom', NULL, '/', 'Home', 0, NOW());
+
+-- Add About page to menu if it exists
+INSERT INTO `menu_items` (`menu_id`, `type`, `object_id`, `title`, `menu_order`, `created_at`)
+SELECT @primary_menu_id, 'page', `id`, 'About', 1, NOW()
+FROM `pages` WHERE `slug` = 'about' LIMIT 1;
+
+-- Add Contact page to menu if it exists
+INSERT INTO `menu_items` (`menu_id`, `type`, `object_id`, `title`, `menu_order`, `created_at`)
+SELECT @primary_menu_id, 'page', `id`, 'Contact', 2, NOW()
+FROM `pages` WHERE `slug` = 'contact' LIMIT 1;
+-- LightBlog CMS - SEO Enhancement Migration
+-- Run this to add SEO fields to existing database
+
+-- Add SEO fields to posts table
+ALTER TABLE posts ADD COLUMN focus_keyword TEXT;
+ALTER TABLE posts ADD COLUMN canonical_url TEXT;
+ALTER TABLE posts ADD COLUMN meta_robots TEXT DEFAULT 'index,follow';
+
+-- Open Graph
+ALTER TABLE posts ADD COLUMN og_title TEXT;
+ALTER TABLE posts ADD COLUMN og_description TEXT;
+ALTER TABLE posts ADD COLUMN og_image TEXT;
+
+-- Twitter Cards
+ALTER TABLE posts ADD COLUMN twitter_title TEXT;
+ALTER TABLE posts ADD COLUMN twitter_description TEXT;
+ALTER TABLE posts ADD COLUMN twitter_image TEXT;
+
+-- Schema & Structured Data
+ALTER TABLE posts ADD COLUMN schema_type TEXT DEFAULT 'Article';
+ALTER TABLE posts ADD COLUMN faq_data TEXT;
+
+-- Content Quality Metrics
+ALTER TABLE posts ADD COLUMN readability_score REAL;
+ALTER TABLE posts ADD COLUMN word_count INTEGER;
+ALTER TABLE posts ADD COLUMN reading_time INTEGER;
+ALTER TABLE posts ADD COLUMN internal_links_count INTEGER DEFAULT 0;
+ALTER TABLE posts ADD COLUMN external_links_count INTEGER DEFAULT 0;
+ALTER TABLE posts ADD COLUMN images_count INTEGER DEFAULT 0;
+ALTER TABLE posts ADD COLUMN has_table_of_contents INTEGER DEFAULT 0;
+
+-- SEO Score
+ALTER TABLE posts ADD COLUMN seo_score INTEGER DEFAULT 0;
+ALTER TABLE posts ADD COLUMN last_seo_check DATETIME;
