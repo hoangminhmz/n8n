@@ -304,15 +304,23 @@ class Campaign {
         // Parse JSON response
         $content = trim($result['content']);
 
+        // Debug: Log raw response for troubleshooting
+        error_log("Campaign {$campaign->id} - AI raw response: " . substr($content, 0, 500));
+
         // Try to extract JSON array from response (in case AI adds extra text)
         if (preg_match('/\[[\s\S]*\]/', $content, $matches)) {
             $content = $matches[0];
+            error_log("Campaign {$campaign->id} - Extracted JSON: " . substr($content, 0, 500));
         }
 
         $topics = json_decode($content, true);
 
         if (!is_array($topics) || empty($topics)) {
-            throw new Exception('Invalid AI response format');
+            // Log the actual response for debugging
+            error_log("Campaign {$campaign->id} - JSON decode failed. Content: " . $content);
+            error_log("Campaign {$campaign->id} - json_last_error: " . json_last_error_msg());
+
+            throw new Exception('Invalid AI response format. Raw response: ' . substr($content, 0, 200) . '...');
         }
 
         // Return requested number of topics
