@@ -1,245 +1,127 @@
--- LightBlog CMS Database Schema
--- Compatible with both SQLite and MySQL
+-- LightBlog CMS Database Schema v1.0
+-- Compatible with MySQL/MariaDB
+-- Complete schema with all features included
 
 -- Core Tables
 
-CREATE TABLE IF NOT EXISTS posts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    slug TEXT UNIQUE NOT NULL,
-    content TEXT,
-    excerpt TEXT,
-    featured_image TEXT,
-    author_id INTEGER,
-    status TEXT DEFAULT 'draft',
-    is_ai_generated INTEGER DEFAULT 0,
-    campaign_id INTEGER,
-    site_id INTEGER DEFAULT 1,
-    created_at DATETIME,
-    updated_at DATETIME,
-    published_at DATETIME,
-    views INTEGER DEFAULT 0,
-    seo_title TEXT,
-    meta_description TEXT,
-    keywords TEXT
-);
+CREATE TABLE IF NOT EXISTS `posts` (
+    `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
 
-CREATE TABLE IF NOT EXISTS categories (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    slug TEXT UNIQUE NOT NULL,
-    description TEXT,
-    parent_id INTEGER
-);
+    -- Basic Info
+    `title` VARCHAR(500) NOT NULL,
+    `slug` VARCHAR(255) UNIQUE NOT NULL,
+    `content` LONGTEXT,
+    `excerpt` TEXT,
+    `featured_image` VARCHAR(500),
 
-CREATE TABLE IF NOT EXISTS post_categories (
-    post_id INTEGER,
-    category_id INTEGER,
-    PRIMARY KEY (post_id, category_id)
-);
+    -- Metadata
+    `author_id` INT(11),
+    `status` VARCHAR(20) DEFAULT 'draft',
+    `is_ai_generated` TINYINT(1) DEFAULT 0,
+    `campaign_id` INT(11),
+    `site_id` INT(11) DEFAULT 1,
 
-CREATE TABLE IF NOT EXISTS tags (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    slug TEXT UNIQUE NOT NULL
-);
+    -- Timestamps
+    `created_at` DATETIME,
+    `updated_at` DATETIME,
+    `published_at` DATETIME,
 
-CREATE TABLE IF NOT EXISTS post_tags (
-    post_id INTEGER,
-    tag_id INTEGER,
-    PRIMARY KEY (post_id, tag_id)
-);
+    -- Stats
+    `views` INT(11) DEFAULT 0,
 
-CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
-    role TEXT DEFAULT 'editor',
-    created_at DATETIME
-);
+    -- Basic SEO
+    `seo_title` VARCHAR(255),
+    `meta_description` TEXT,
+    `keywords` TEXT,
+    `focus_keyword` VARCHAR(255),
+    `canonical_url` VARCHAR(500),
+    `meta_robots` VARCHAR(50) DEFAULT 'index,follow',
 
-CREATE TABLE IF NOT EXISTS settings (
-    key TEXT PRIMARY KEY,
-    value TEXT,
-    autoload INTEGER DEFAULT 1
-);
+    -- Open Graph
+    `og_title` VARCHAR(255),
+    `og_description` TEXT,
+    `og_image` VARCHAR(500),
 
--- Auto-Blogging Tables
+    -- Twitter Cards
+    `twitter_title` VARCHAR(255),
+    `twitter_description` TEXT,
+    `twitter_image` VARCHAR(500),
 
-CREATE TABLE IF NOT EXISTS campaigns (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    niche TEXT,
-    status TEXT DEFAULT 'active',
-    goal TEXT,
-    seed_keywords TEXT,
-    target_count INTEGER,
-    frequency TEXT,
-    posts_per_day INTEGER,
-    content_types TEXT,
-    word_count_min INTEGER DEFAULT 1500,
-    word_count_max INTEGER DEFAULT 2500,
-    keyword_density REAL DEFAULT 1.5,
-    auto_internal_links INTEGER DEFAULT 3,
-    ai_provider TEXT,
-    ai_model TEXT,
-    ai_temperature REAL DEFAULT 0.7,
-    tone TEXT,
-    language TEXT DEFAULT 'en',
-    affiliate_settings TEXT,
-    start_date DATE,
-    end_date DATE,
-    publish_times TEXT,
-    timezone TEXT,
-    created_at DATETIME,
-    updated_at DATETIME
-);
+    -- Schema & Structured Data
+    `schema_type` VARCHAR(50) DEFAULT 'Article',
+    `faq_data` TEXT,
 
-CREATE TABLE IF NOT EXISTS ai_queue (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    campaign_id INTEGER,
-    topic TEXT,
-    keywords TEXT,
-    status TEXT DEFAULT 'pending',
-    priority INTEGER DEFAULT 5,
-    scheduled_for DATETIME,
-    generated_post_id INTEGER,
-    error_message TEXT,
-    created_at DATETIME,
-    processed_at DATETIME
-);
+    -- Content Quality Metrics
+    `readability_score` DECIMAL(5,2),
+    `word_count` INT(11),
+    `reading_time` INT(11),
+    `internal_links_count` INT(11) DEFAULT 0,
+    `external_links_count` INT(11) DEFAULT 0,
+    `images_count` INT(11) DEFAULT 0,
+    `has_table_of_contents` TINYINT(1) DEFAULT 0,
 
-CREATE TABLE IF NOT EXISTS ai_usage (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    provider TEXT,
-    model TEXT,
-    tokens_used INTEGER,
-    cost REAL,
-    campaign_id INTEGER,
-    timestamp DATETIME
-);
+    -- SEO Score
+    `seo_score` INT(11) DEFAULT 0,
+    `last_seo_check` DATETIME,
 
-CREATE TABLE IF NOT EXISTS content_templates (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    type TEXT,
-    structure TEXT,
-    seo_patterns TEXT,
-    created_at DATETIME
-);
+    PRIMARY KEY (`id`),
+    KEY `idx_posts_status` (`status`),
+    KEY `idx_posts_slug` (`slug`),
+    KEY `idx_posts_campaign` (`campaign_id`),
+    KEY `idx_posts_published` (`published_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Affiliate System Tables
+CREATE TABLE IF NOT EXISTS `categories` (
+    `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `name` VARCHAR(255) NOT NULL,
+    `slug` VARCHAR(255) UNIQUE NOT NULL,
+    `description` TEXT,
+    `parent_id` INT(11) DEFAULT 0,
+    `icon` VARCHAR(50) DEFAULT NULL,
+    `display_in_menu` TINYINT(1) DEFAULT 1,
+    PRIMARY KEY (`id`),
+    KEY `idx_categories_slug` (`slug`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS affiliate_networks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    api_key TEXT,
-    tracking_id TEXT,
-    commission_rate REAL,
-    cookie_duration INTEGER,
-    status TEXT DEFAULT 'active'
-);
+CREATE TABLE IF NOT EXISTS `post_categories` (
+    `post_id` INT(11) UNSIGNED,
+    `category_id` INT(11) UNSIGNED,
+    PRIMARY KEY (`post_id`, `category_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS affiliate_products (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    network_id INTEGER,
-    product_name TEXT,
-    product_url TEXT,
-    affiliate_url TEXT,
-    image_url TEXT,
-    price REAL,
-    category TEXT,
-    keywords TEXT,
-    clicks INTEGER DEFAULT 0,
-    conversions INTEGER DEFAULT 0,
-    revenue REAL DEFAULT 0,
-    last_updated DATETIME
-);
+CREATE TABLE IF NOT EXISTS `tags` (
+    `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `name` VARCHAR(255) NOT NULL,
+    `slug` VARCHAR(255) UNIQUE NOT NULL,
+    PRIMARY KEY (`id`),
+    KEY `idx_tags_slug` (`slug`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS campaign_affiliates (
-    campaign_id INTEGER,
-    product_id INTEGER,
-    priority INTEGER DEFAULT 5,
-    min_mentions INTEGER DEFAULT 1,
-    PRIMARY KEY (campaign_id, product_id)
-);
+CREATE TABLE IF NOT EXISTS `post_tags` (
+    `post_id` INT(11) UNSIGNED,
+    `tag_id` INT(11) UNSIGNED,
+    PRIMARY KEY (`post_id`, `tag_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS affiliate_clicks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    post_id INTEGER,
-    product_id INTEGER,
-    ip_address TEXT,
-    user_agent TEXT,
-    referrer TEXT,
-    clicked_at DATETIME
-);
+CREATE TABLE IF NOT EXISTS `users` (
+    `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `username` VARCHAR(255) UNIQUE NOT NULL,
+    `email` VARCHAR(255) UNIQUE NOT NULL,
+    `password` VARCHAR(255) NOT NULL,
+    `role` VARCHAR(20) DEFAULT 'editor',
+    `created_at` DATETIME,
+    PRIMARY KEY (`id`),
+    KEY `idx_users_email` (`email`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Satellite Network Tables
+CREATE TABLE IF NOT EXISTS `settings` (
+    `key` VARCHAR(255) PRIMARY KEY,
+    `value` TEXT,
+    `autoload` TINYINT(1) DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS satellite_sites (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    domain TEXT UNIQUE NOT NULL,
-    api_key TEXT,
-    niche TEXT,
-    language TEXT DEFAULT 'en',
-    status TEXT DEFAULT 'active',
-    posts_count INTEGER DEFAULT 0,
-    main_site_id INTEGER,
-    created_at DATETIME
-);
+-- Pages System
 
-CREATE TABLE IF NOT EXISTS cross_links (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    from_site_id INTEGER,
-    from_post_id INTEGER,
-    to_site_id INTEGER,
-    to_post_id INTEGER,
-    anchor_text TEXT,
-    position TEXT,
-    created_at DATETIME
-);
-
--- Cron Logs
-
-CREATE TABLE IF NOT EXISTS cron_logs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    job_name TEXT,
-    status TEXT,
-    message TEXT,
-    executed_at DATETIME
-);
-
--- Media Library
-
-CREATE TABLE IF NOT EXISTS media (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    filename TEXT NOT NULL,
-    original_filename TEXT,
-    file_path TEXT,
-    file_size INTEGER,
-    mime_type TEXT,
-    width INTEGER,
-    height INTEGER,
-    uploaded_by INTEGER,
-    uploaded_at DATETIME
-);
-
--- Indexes for Performance
-
-CREATE INDEX IF NOT EXISTS idx_posts_status ON posts(status);
-CREATE INDEX IF NOT EXISTS idx_posts_slug ON posts(slug);
-CREATE INDEX IF NOT EXISTS idx_posts_campaign ON posts(campaign_id);
-CREATE INDEX IF NOT EXISTS idx_posts_published ON posts(published_at);
-CREATE INDEX IF NOT EXISTS idx_ai_queue_status ON ai_queue(status);
-CREATE INDEX IF NOT EXISTS idx_ai_queue_scheduled ON ai_queue(scheduled_for);
-CREATE INDEX IF NOT EXISTS idx_affiliate_clicks_post ON affiliate_clicks(post_id);
-CREATE INDEX IF NOT EXISTS idx_affiliate_clicks_product ON affiliate_clicks(product_id);
-CREATE INDEX IF NOT EXISTS idx_campaigns_status ON campaigns(status);
--- LightBlog CMS - Pages System Migration (MySQL/MariaDB)
--- Add support for static pages (About, Contact, etc.)
-
--- Pages table
 CREATE TABLE IF NOT EXISTS `pages` (
     `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
 
@@ -259,9 +141,9 @@ CREATE TABLE IF NOT EXISTS `pages` (
     `custom_js` TEXT,
 
     -- Content mode
-    `content_mode` VARCHAR(20) DEFAULT 'html',  -- 'html', 'markdown', 'ai'
+    `content_mode` VARCHAR(20) DEFAULT 'html',
 
-    -- AI Generation (for future use)
+    -- AI Generation
     `ai_prompt` TEXT,
     `ai_generated` TINYINT(1) DEFAULT 0,
     `ai_provider` VARCHAR(50),
@@ -272,11 +154,11 @@ CREATE TABLE IF NOT EXISTS `pages` (
 
     -- Metadata
     `author_id` INT(11),
-    `status` VARCHAR(20) DEFAULT 'draft',  -- draft, published, private
-    `visibility` VARCHAR(20) DEFAULT 'public',  -- public, private, password
+    `status` VARCHAR(20) DEFAULT 'draft',
+    `visibility` VARCHAR(20) DEFAULT 'public',
     `password` VARCHAR(255),
 
-    -- SEO fields (same as posts)
+    -- SEO fields
     `seo_title` VARCHAR(255),
     `meta_description` TEXT,
     `canonical_url` VARCHAR(500),
@@ -312,6 +194,234 @@ CREATE TABLE IF NOT EXISTS `pages` (
     KEY `idx_pages_published` (`published_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Menu System
+
+CREATE TABLE IF NOT EXISTS `menus` (
+    `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `name` VARCHAR(255) NOT NULL,
+    `location` VARCHAR(50),
+    `description` TEXT,
+    `created_at` DATETIME,
+    `updated_at` DATETIME,
+    PRIMARY KEY (`id`),
+    KEY `idx_menus_location` (`location`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `menu_items` (
+    `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `menu_id` INT(11) UNSIGNED NOT NULL,
+
+    -- Item type & target
+    `type` VARCHAR(20) NOT NULL,
+    `object_id` INT(11),
+    `custom_url` VARCHAR(500),
+
+    -- Display
+    `title` VARCHAR(255) NOT NULL,
+    `css_classes` VARCHAR(255),
+    `target` VARCHAR(20) DEFAULT '_self',
+
+    -- Hierarchy
+    `parent_id` INT(11) DEFAULT 0,
+    `menu_order` INT(11) DEFAULT 0,
+
+    `created_at` DATETIME,
+
+    PRIMARY KEY (`id`),
+    KEY `idx_menu_items_menu` (`menu_id`),
+    KEY `idx_menu_items_order` (`menu_order`),
+    KEY `idx_menu_items_parent` (`parent_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Auto-Blogging Tables
+
+CREATE TABLE IF NOT EXISTS `campaigns` (
+    `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `name` VARCHAR(255) NOT NULL,
+    `niche` TEXT,
+    `status` VARCHAR(20) DEFAULT 'active',
+    `goal` TEXT,
+    `seed_keywords` TEXT,
+    `target_count` INT(11),
+    `frequency` VARCHAR(50),
+    `posts_per_day` INT(11),
+    `content_types` TEXT,
+    `word_count_min` INT(11) DEFAULT 1500,
+    `word_count_max` INT(11) DEFAULT 2500,
+    `keyword_density` DECIMAL(5,2) DEFAULT 1.5,
+    `auto_internal_links` INT(11) DEFAULT 3,
+    `ai_provider` VARCHAR(50),
+    `ai_model` VARCHAR(50),
+    `ai_temperature` DECIMAL(3,2) DEFAULT 0.7,
+    `tone` VARCHAR(50),
+    `language` VARCHAR(10) DEFAULT 'en',
+    `affiliate_settings` TEXT,
+    `start_date` DATE,
+    `end_date` DATE,
+    `publish_times` TEXT,
+    `timezone` VARCHAR(50),
+    `created_at` DATETIME,
+    `updated_at` DATETIME,
+    PRIMARY KEY (`id`),
+    KEY `idx_campaigns_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `ai_queue` (
+    `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `campaign_id` INT(11),
+    `topic` VARCHAR(500),
+    `keywords` TEXT,
+    `status` VARCHAR(20) DEFAULT 'pending',
+    `priority` INT(11) DEFAULT 5,
+    `scheduled_for` DATETIME,
+    `generated_post_id` INT(11),
+    `error_message` TEXT,
+    `created_at` DATETIME,
+    `processed_at` DATETIME,
+    PRIMARY KEY (`id`),
+    KEY `idx_ai_queue_status` (`status`),
+    KEY `idx_ai_queue_scheduled` (`scheduled_for`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `ai_usage` (
+    `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `provider` VARCHAR(50),
+    `model` VARCHAR(50),
+    `tokens_used` INT(11),
+    `cost` DECIMAL(10,6),
+    `campaign_id` INT(11),
+    `timestamp` DATETIME,
+    PRIMARY KEY (`id`),
+    KEY `idx_ai_usage_timestamp` (`timestamp`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `content_templates` (
+    `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `name` VARCHAR(255) NOT NULL,
+    `type` VARCHAR(50),
+    `structure` TEXT,
+    `seo_patterns` TEXT,
+    `created_at` DATETIME,
+    PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Affiliate System Tables
+
+CREATE TABLE IF NOT EXISTS `affiliate_networks` (
+    `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `name` VARCHAR(255) NOT NULL,
+    `api_key` VARCHAR(255),
+    `tracking_id` VARCHAR(255),
+    `commission_rate` DECIMAL(5,2),
+    `cookie_duration` INT(11),
+    `status` VARCHAR(20) DEFAULT 'active',
+    PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `affiliate_products` (
+    `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `network_id` INT(11),
+    `product_name` VARCHAR(500),
+    `product_url` VARCHAR(500),
+    `affiliate_url` VARCHAR(500),
+    `image_url` VARCHAR(500),
+    `price` DECIMAL(10,2),
+    `category` VARCHAR(255),
+    `keywords` TEXT,
+    `clicks` INT(11) DEFAULT 0,
+    `conversions` INT(11) DEFAULT 0,
+    `revenue` DECIMAL(10,2) DEFAULT 0,
+    `last_updated` DATETIME,
+    PRIMARY KEY (`id`),
+    KEY `idx_affiliate_products_network` (`network_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `campaign_affiliates` (
+    `campaign_id` INT(11) UNSIGNED,
+    `product_id` INT(11) UNSIGNED,
+    `priority` INT(11) DEFAULT 5,
+    `min_mentions` INT(11) DEFAULT 1,
+    PRIMARY KEY (`campaign_id`, `product_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `affiliate_clicks` (
+    `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `post_id` INT(11),
+    `product_id` INT(11),
+    `ip_address` VARCHAR(45),
+    `user_agent` TEXT,
+    `referrer` VARCHAR(500),
+    `clicked_at` DATETIME,
+    PRIMARY KEY (`id`),
+    KEY `idx_affiliate_clicks_post` (`post_id`),
+    KEY `idx_affiliate_clicks_product` (`product_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Satellite Network Tables
+
+CREATE TABLE IF NOT EXISTS `satellite_sites` (
+    `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `domain` VARCHAR(255) UNIQUE NOT NULL,
+    `api_key` VARCHAR(255),
+    `niche` VARCHAR(255),
+    `language` VARCHAR(10) DEFAULT 'en',
+    `status` VARCHAR(20) DEFAULT 'active',
+    `posts_count` INT(11) DEFAULT 0,
+    `main_site_id` INT(11),
+    `created_at` DATETIME,
+    PRIMARY KEY (`id`),
+    KEY `idx_satellite_sites_domain` (`domain`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `cross_links` (
+    `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `from_site_id` INT(11),
+    `from_post_id` INT(11),
+    `to_site_id` INT(11),
+    `to_post_id` INT(11),
+    `anchor_text` VARCHAR(255),
+    `position` VARCHAR(50),
+    `created_at` DATETIME,
+    PRIMARY KEY (`id`),
+    KEY `idx_cross_links_from` (`from_site_id`, `from_post_id`),
+    KEY `idx_cross_links_to` (`to_site_id`, `to_post_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Cron Logs
+
+CREATE TABLE IF NOT EXISTS `cron_logs` (
+    `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `job_name` VARCHAR(255),
+    `status` VARCHAR(20),
+    `message` TEXT,
+    `executed_at` DATETIME,
+    PRIMARY KEY (`id`),
+    KEY `idx_cron_logs_executed` (`executed_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Media Library
+
+CREATE TABLE IF NOT EXISTS `media` (
+    `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `filename` VARCHAR(255) NOT NULL,
+    `original_filename` VARCHAR(255),
+    `file_path` VARCHAR(500),
+    `file_size` BIGINT,
+    `mime_type` VARCHAR(100),
+    `width` INT(11),
+    `height` INT(11),
+    `uploaded_by` INT(11),
+    `uploaded_at` DATETIME,
+    PRIMARY KEY (`id`),
+    KEY `idx_media_uploaded` (`uploaded_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Sample Data
+
+-- Insert default user (admin/password123)
+INSERT INTO `users` (`username`, `email`, `password`, `role`, `created_at`)
+VALUES ('admin', 'admin@example.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin', NOW());
+
 -- Insert sample pages
 INSERT INTO `pages` (`title`, `slug`, `content`, `status`, `published_at`, `created_at`, `seo_title`, `meta_description`)
 VALUES
@@ -324,7 +434,6 @@ VALUES
 'About Us - Learn More About Our Blog',
 'Learn more about our mission, values, and the team behind our blog.'
 ),
-
 ('Contact', 'contact',
 '<h1>Contact Us</h1>
 <p>Get in touch with us for inquiries, feedback, or collaboration opportunities.</p>
@@ -337,51 +446,6 @@ VALUES
 'Contact Us - Get in Touch',
 'Contact us for inquiries, feedback, or collaboration opportunities.'
 );
--- LightBlog CMS - Menu System Migration (MySQL/MariaDB)
--- Add support for navigation menus
-
--- Menus table (menu locations)
-CREATE TABLE IF NOT EXISTS `menus` (
-    `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
-    `name` VARCHAR(255) NOT NULL,
-    `location` VARCHAR(50),          -- 'primary', 'footer', 'mobile', 'sidebar'
-    `description` TEXT,
-    `created_at` DATETIME,
-    `updated_at` DATETIME,
-    PRIMARY KEY (`id`),
-    KEY `idx_menus_location` (`location`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Menu Items table
-CREATE TABLE IF NOT EXISTS `menu_items` (
-    `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
-    `menu_id` INT(11) UNSIGNED NOT NULL,
-
-    -- Item type & target
-    `type` VARCHAR(20) NOT NULL,     -- 'page', 'category', 'post', 'custom'
-    `object_id` INT(11),             -- ID of page/category/post
-    `custom_url` VARCHAR(500),       -- For custom links
-
-    -- Display
-    `title` VARCHAR(255) NOT NULL,   -- Label to display
-    `css_classes` VARCHAR(255),      -- Custom CSS classes
-    `target` VARCHAR(20) DEFAULT '_self',  -- _self, _blank
-
-    -- Hierarchy
-    `parent_id` INT(11) DEFAULT 0,   -- For dropdown menus
-    `menu_order` INT(11) DEFAULT 0,  -- Sort order
-
-    `created_at` DATETIME,
-
-    PRIMARY KEY (`id`),
-    KEY `idx_menu_items_menu` (`menu_id`),
-    KEY `idx_menu_items_order` (`menu_order`),
-    KEY `idx_menu_items_parent` (`parent_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Add icon field to categories (for menu display)
-ALTER TABLE `categories` ADD COLUMN `icon` VARCHAR(50) DEFAULT NULL;
-ALTER TABLE `categories` ADD COLUMN `display_in_menu` TINYINT(1) DEFAULT 1;
 
 -- Insert default menus
 INSERT INTO `menus` (`name`, `location`, `description`, `created_at`)
@@ -389,54 +453,28 @@ VALUES
 ('Primary Menu', 'primary', 'Main navigation menu in header', NOW()),
 ('Footer Menu', 'footer', 'Footer navigation menu', NOW());
 
--- Get the primary menu ID
-SET @primary_menu_id = (SELECT `id` FROM `menus` WHERE `location` = 'primary' LIMIT 1);
+-- Insert default menu items
+SET @primary_menu_id = LAST_INSERT_ID();
 
--- Insert default menu items (Home + sample pages if they exist)
 INSERT INTO `menu_items` (`menu_id`, `type`, `object_id`, `custom_url`, `title`, `menu_order`, `created_at`)
 VALUES
 (@primary_menu_id, 'custom', NULL, '/', 'Home', 0, NOW());
 
--- Add About page to menu if it exists
+-- Add About page to menu
 INSERT INTO `menu_items` (`menu_id`, `type`, `object_id`, `title`, `menu_order`, `created_at`)
 SELECT @primary_menu_id, 'page', `id`, 'About', 1, NOW()
 FROM `pages` WHERE `slug` = 'about' LIMIT 1;
 
--- Add Contact page to menu if it exists
+-- Add Contact page to menu
 INSERT INTO `menu_items` (`menu_id`, `type`, `object_id`, `title`, `menu_order`, `created_at`)
 SELECT @primary_menu_id, 'page', `id`, 'Contact', 2, NOW()
 FROM `pages` WHERE `slug` = 'contact' LIMIT 1;
--- LightBlog CMS - SEO Enhancement Migration
--- Run this to add SEO fields to existing database
 
--- Add SEO fields to posts table
-ALTER TABLE posts ADD COLUMN focus_keyword TEXT;
-ALTER TABLE posts ADD COLUMN canonical_url TEXT;
-ALTER TABLE posts ADD COLUMN meta_robots TEXT DEFAULT 'index,follow';
-
--- Open Graph
-ALTER TABLE posts ADD COLUMN og_title TEXT;
-ALTER TABLE posts ADD COLUMN og_description TEXT;
-ALTER TABLE posts ADD COLUMN og_image TEXT;
-
--- Twitter Cards
-ALTER TABLE posts ADD COLUMN twitter_title TEXT;
-ALTER TABLE posts ADD COLUMN twitter_description TEXT;
-ALTER TABLE posts ADD COLUMN twitter_image TEXT;
-
--- Schema & Structured Data
-ALTER TABLE posts ADD COLUMN schema_type TEXT DEFAULT 'Article';
-ALTER TABLE posts ADD COLUMN faq_data TEXT;
-
--- Content Quality Metrics
-ALTER TABLE posts ADD COLUMN readability_score REAL;
-ALTER TABLE posts ADD COLUMN word_count INTEGER;
-ALTER TABLE posts ADD COLUMN reading_time INTEGER;
-ALTER TABLE posts ADD COLUMN internal_links_count INTEGER DEFAULT 0;
-ALTER TABLE posts ADD COLUMN external_links_count INTEGER DEFAULT 0;
-ALTER TABLE posts ADD COLUMN images_count INTEGER DEFAULT 0;
-ALTER TABLE posts ADD COLUMN has_table_of_contents INTEGER DEFAULT 0;
-
--- SEO Score
-ALTER TABLE posts ADD COLUMN seo_score INTEGER DEFAULT 0;
-ALTER TABLE posts ADD COLUMN last_seo_check DATETIME;
+-- Insert default settings
+INSERT INTO `settings` (`key`, `value`) VALUES
+('site_name', 'LightBlog CMS'),
+('site_tagline', 'AI-Powered Content Hub'),
+('posts_per_page', '10'),
+('timezone', 'UTC'),
+('image_ai_provider', 'auto'),
+('content_ai_provider', 'auto');
