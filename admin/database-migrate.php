@@ -150,18 +150,28 @@ if (isset($_POST['run_migration'])) {
         $messages[] = ['type' => 'success', 'text' => "Created table: menus"];
         $executed++;
 
-        // Insert default menus
-        $db->query("INSERT INTO `menus` (`name`, `location`, `description`, `created_at`) VALUES
-            ('Primary Menu', 'primary', 'Main navigation menu', NOW()),
-            ('Footer Menu', 'footer', 'Footer navigation menu', NOW())
-        ");
-        $messages[] = ['type' => 'success', 'text' => "Added default menus"];
-
     } catch (Exception $e) {
         if (strpos($e->getMessage(), 'already exists') === false) {
             $messages[] = ['type' => 'error', 'text' => "Error creating menus table: " . $e->getMessage()];
             $errors++;
         }
+    }
+
+    // Insert default menus if they don't exist
+    try {
+        $existingMenus = $db->queryOne("SELECT COUNT(*) as count FROM menus WHERE location IN ('primary', 'footer')");
+        if ($existingMenus->count == 0) {
+            $db->query("INSERT INTO `menus` (`name`, `location`, `description`, `created_at`) VALUES
+                ('Primary Menu', 'primary', 'Main navigation menu', NOW()),
+                ('Footer Menu', 'footer', 'Footer navigation menu', NOW())
+            ");
+            $messages[] = ['type' => 'success', 'text' => "Added default menus"];
+            $executed++;
+        } else {
+            $messages[] = ['type' => 'info', 'text' => "Default menus already exist (skipped)"];
+        }
+    } catch (Exception $e) {
+        $messages[] = ['type' => 'warning', 'text' => "Could not insert default menus: " . $e->getMessage()];
     }
 
     // Step 5: Create menu_items table
@@ -185,20 +195,33 @@ if (isset($_POST['run_migration'])) {
         $messages[] = ['type' => 'success', 'text' => "Created table: menu_items"];
         $executed++;
 
-        // Insert default menu items
-        $primaryMenuId = $db->queryOne("SELECT id FROM menus WHERE location = 'primary' LIMIT 1");
-        if ($primaryMenuId) {
-            $db->query("INSERT INTO `menu_items` (`menu_id`, `type`, `custom_url`, `title`, `menu_order`, `created_at`) VALUES
-                ({$primaryMenuId->id}, 'custom', '/', 'Home', 0, NOW())
-            ");
-            $messages[] = ['type' => 'success', 'text' => "Added default menu items"];
-        }
-
     } catch (Exception $e) {
         if (strpos($e->getMessage(), 'already exists') === false) {
             $messages[] = ['type' => 'error', 'text' => "Error creating menu_items table: " . $e->getMessage()];
             $errors++;
         }
+    }
+
+    // Insert default menu items if they don't exist
+    try {
+        $primaryMenuId = $db->queryOne("SELECT id FROM menus WHERE location = 'primary' LIMIT 1");
+        if ($primaryMenuId && $primaryMenuId->id) {
+            // Check if menu items already exist for this menu
+            $existingItems = $db->queryOne("SELECT COUNT(*) as count FROM menu_items WHERE menu_id = ?", [$primaryMenuId->id]);
+            if ($existingItems->count == 0) {
+                $db->query("INSERT INTO `menu_items` (`menu_id`, `type`, `custom_url`, `title`, `menu_order`, `created_at`) VALUES
+                    ({$primaryMenuId->id}, 'custom', '/', 'Home', 0, NOW())
+                ");
+                $messages[] = ['type' => 'success', 'text' => "Added default menu items"];
+                $executed++;
+            } else {
+                $messages[] = ['type' => 'info', 'text' => "Default menu items already exist (skipped)"];
+            }
+        } else {
+            $messages[] = ['type' => 'warning', 'text' => "Primary menu not found, skipping menu items creation"];
+        }
+    } catch (Exception $e) {
+        $messages[] = ['type' => 'warning', 'text' => "Could not insert default menu items: " . $e->getMessage()];
     }
 
     // Step 6: Create prompt_templates table for AI prompt customization
