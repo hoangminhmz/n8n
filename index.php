@@ -9,11 +9,11 @@ if (file_exists(__DIR__ . '/config.php')) {
     require_once __DIR__ . '/config.php';
 } else {
     // Redirect to installation if config doesn't exist
-    if (file_exists(__DIR__ . '/install.php')) {
-        header('Location: /install.php');
+    if (file_exists(__DIR__ . '/install/index.php')) {
+        header('Location: /install/index.php');
         exit;
     } else {
-        die('Configuration file not found. Please copy config.sample.php to config.php and configure your settings.');
+        die('Configuration file not found. Please run the installation wizard at /install/');
     }
 }
 

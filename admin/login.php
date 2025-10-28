@@ -5,6 +5,12 @@
 
 session_start();
 
+// Check if installation is needed
+if (!file_exists(__DIR__ . '/../config.php')) {
+    header('Location: ' . dirname($_SERVER['PHP_SELF']) . '/../install/index.php');
+    exit;
+}
+
 // Load config first to get BASE_PATH
 require_once __DIR__ . '/../config.php';
 require_once SITE_PATH . '/core/Database.php';
