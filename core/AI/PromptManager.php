@@ -394,19 +394,43 @@ Output just the title, nothing else.',
      * @return array Statistics about prompt usage
      */
     public function getStatistics() {
-        $stats = $this->db->queryOne("
-            SELECT
-                COUNT(*) as total,
-                SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as custom_active,
-                SUM(CASE WHEN custom_prompt IS NOT NULL THEN 1 ELSE 0 END) as has_custom
-            FROM prompt_templates
-        ");
+        try {
+            $stats = $this->db->queryOne("
+                SELECT
+                    COUNT(*) as total,
+                    SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as custom_active,
+                    SUM(CASE WHEN custom_prompt IS NOT NULL THEN 1 ELSE 0 END) as has_custom
+                FROM prompt_templates
+            ");
 
-        return [
-            'total_templates' => (int)$stats->total,
-            'custom_prompts_created' => (int)$stats->has_custom,
-            'custom_prompts_active' => (int)$stats->custom_active,
-            'using_defaults' => (int)$stats->total - (int)$stats->custom_active
-        ];
+            // Handle null or missing data
+            if (!$stats) {
+                return [
+                    'total_templates' => 0,
+                    'custom_prompts_created' => 0,
+                    'custom_prompts_active' => 0,
+                    'using_defaults' => 0
+                ];
+            }
+
+            $total = isset($stats->total) ? (int)$stats->total : 0;
+            $hasCustom = isset($stats->has_custom) ? (int)$stats->has_custom : 0;
+            $customActive = isset($stats->custom_active) ? (int)$stats->custom_active : 0;
+
+            return [
+                'total_templates' => $total,
+                'custom_prompts_created' => $hasCustom,
+                'custom_prompts_active' => $customActive,
+                'using_defaults' => $total - $customActive
+            ];
+        } catch (Exception $e) {
+            // Return zero stats on error
+            return [
+                'total_templates' => 0,
+                'custom_prompts_created' => 0,
+                'custom_prompts_active' => 0,
+                'using_defaults' => 0
+            ];
+        }
     }
 }

@@ -83,12 +83,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Get all templates grouped by category
-$postTemplates = $promptManager->getTemplatesByCategory('post');
-$campaignTemplates = $promptManager->getTemplatesByCategory('campaign');
-$imageTemplates = $promptManager->getTemplatesByCategory('image');
+try {
+    $postTemplates = $promptManager->getTemplatesByCategory('post');
+    $campaignTemplates = $promptManager->getTemplatesByCategory('campaign');
+    $imageTemplates = $promptManager->getTemplatesByCategory('image');
+} catch (Exception $e) {
+    // Fallback to empty arrays if database error
+    $postTemplates = [];
+    $campaignTemplates = [];
+    $imageTemplates = [];
+    $message = "Warning: Could not load templates. Database error: " . $e->getMessage();
+    $messageType = 'warning';
+}
 
 // Get statistics
-$stats = $promptManager->getStatistics();
+try {
+    $stats = $promptManager->getStatistics();
+} catch (Exception $e) {
+    // Fallback stats
+    $stats = [
+        'total_templates' => 0,
+        'custom_prompts_created' => 0,
+        'custom_prompts_active' => 0,
+        'using_defaults' => 0
+    ];
+}
 
 ?>
 
