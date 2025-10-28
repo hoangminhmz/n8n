@@ -158,15 +158,30 @@ class ImageGenerator {
      * @return string Search query
      */
     private function extractSearchQuery($title) {
-        // Remove common words
-        $cleanTitle = preg_replace('/^(how to|guide to|introduction to|what is|why|when|where)\s+/i', '', $title);
+        // Remove article prefixes like "The Golden Slumber:"
+        $cleanTitle = preg_replace('/^[^:]+:\s*/', '', $title);
+
+        // Remove common words and phrases
+        $cleanTitle = preg_replace('/^(how to|guide to|introduction to|what is|why|when|where|finding|the best|best)\s+/i', '', $cleanTitle);
+
+        // Remove year patterns
+        $cleanTitle = preg_replace('/\s+(in\s+)?\d{4}(\s+|$)/i', ' ', $cleanTitle);
+
+        // Remove trailing phrases like "for optimal health and comfort"
+        $cleanTitle = preg_replace('/\s+for\s+[^,]+$/i', '', $cleanTitle);
 
         // Remove special characters
         $cleanTitle = preg_replace('/[^\w\s]/', '', $cleanTitle);
 
+        // Filter out filler words
+        $words = preg_split('/\s+/', trim($cleanTitle));
+        $fillerWords = ['the', 'and', 'or', 'but', 'for', 'with', 'from', 'about', 'finding'];
+        $keywords = array_filter($words, function($word) use ($fillerWords) {
+            return !in_array(strtolower($word), $fillerWords) && strlen($word) > 2;
+        });
+
         // Limit to 3-4 main keywords
-        $words = explode(' ', $cleanTitle);
-        $keywords = array_slice($words, 0, 4);
+        $keywords = array_slice($keywords, 0, 4);
 
         return implode(' ', $keywords);
     }
