@@ -11,12 +11,12 @@ $db = Database::getInstance();
 
 echo "<h1>🔧 Fix Gemini Model Names in Campaigns</h1>";
 
-// Map old invalid names to new valid ones
+// Map old invalid/deprecated names to new valid ones
+// Updated: gemini-2.5-* models are now valid (December 2024)
 $modelFixes = [
-    'gemini-flash-latest' => 'gemini-1.5-flash',
-    'gemini-1.5-pro-latest' => 'gemini-1.5-pro',
-    'gemini-2.5-flash' => 'gemini-1.5-flash',
-    'gemini-pro' => 'gemini-1.5-pro',
+    'gemini-flash-latest' => 'gemini-2.5-flash',
+    'gemini-1.5-pro-latest' => 'gemini-2.5-pro',
+    // Note: gemini-2.5-flash, gemini-2.5-pro, gemini-2.5-flash-lite are now valid
 ];
 
 echo "<h2>Step 1: Checking campaigns...</h2>";
