@@ -2,6 +2,6 @@
         </main>
     </div>
 
-    <script src="/admin/assets/admin.js"></script>
+    <script src="<?= $basePath ?>admin/assets/admin.js"></script>
 </body>
 </html>

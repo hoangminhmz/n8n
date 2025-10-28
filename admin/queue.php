@@ -175,7 +175,7 @@ include __DIR__ . '/includes/header.php';
             <div class="empty-state-icon">⏱️</div>
             <h3>No Queue Items</h3>
             <p>Generate topics from your campaigns to see them here</p>
-            <a href="/admin/campaigns.php" class="btn btn-primary">Go to Campaigns</a>
+            <a href="<?= $basePath ?>admin/campaigns.php" class="btn btn-primary">Go to Campaigns</a>
         </div>
     <?php else: ?>
         <form method="POST" id="bulkForm">
