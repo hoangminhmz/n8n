@@ -251,6 +251,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $configContent .= " */\n\n";
 
             $configContent .= "// Database Configuration\n";
+            $configContent .= "define('DB_TYPE', 'mysql'); // mysql or sqlite\n";
             $configContent .= "define('DB_HOST', '" . addslashes($installData['db_host']) . "');\n";
             $configContent .= "define('DB_NAME', '" . addslashes($installData['db_name']) . "');\n";
             $configContent .= "define('DB_USER', '" . addslashes($installData['db_user']) . "');\n";
