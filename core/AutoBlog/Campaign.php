@@ -6,9 +6,14 @@
 
 class Campaign {
     private $db;
+    private $promptManager;
 
     public function __construct() {
         $this->db = Database::getInstance();
+
+        // Initialize PromptManager for customizable prompts
+        require_once __DIR__ . '/../AI/PromptManager.php';
+        $this->promptManager = new PromptManager();
     }
 
     /**
@@ -269,8 +274,7 @@ class Campaign {
         $existingTopicsStr = '';
         if (!empty($existingTopics)) {
             $sampleExisting = array_slice($existingTopics, 0, 20); // Show up to 20 examples
-            $existingTopicsStr = "\n\n**IMPORTANT - Avoid These Existing Topics:**\n";
-            $existingTopicsStr .= "These topics already exist. Generate COMPLETELY DIFFERENT topics:\n";
+            $existingTopicsStr = "These topics already exist. Generate COMPLETELY DIFFERENT topics:\n";
             foreach ($sampleExisting as $existing) {
                 $existingTopicsStr .= "- " . $existing . "\n";
             }
@@ -280,32 +284,15 @@ class Campaign {
             $existingTopicsStr .= "\nDo NOT create topics similar to these. Be creative and explore NEW angles!";
         }
 
-        $prompt = "Generate {$count} highly engaging and SEO-optimized blog article topics for a {$niche} blog.
-
-**Seed Keywords:** {$keywordsStr}
-
-**Campaign Goal:** {$goal}
-{$goalContext[$goal]}
-
-**Tone:** {$tone}
-{$existingTopicsStr}
-
-**Requirements:**
-- Create UNIQUE, diverse topics that cover DIFFERENT angles and aspects
-- Include current year ({$currentYear}) where relevant for freshness
-- Make topics compelling, specific, and click-worthy
-- Ensure topics have good search potential and clear user intent
-- Mix different content types: how-to guides, listicles, comparisons, case studies, trend analyses, expert opinions
-- Topics should naturally incorporate the seed keywords in creative ways
-- Each topic should be specific enough to write a focused {$campaign->word_count_min}-{$campaign->word_count_max} word article
-- Avoid generic titles - be specific and actionable
-- Prioritize fresh, unique angles over common topics
-
-**Output Format:**
-Return ONLY a valid JSON array of topic strings. No additional text, explanations, or formatting.
-Example: [\"Topic 1 here\", \"Topic 2 here\", \"Topic 3 here\"]
-
-Generate {$count} creative, unique topics now:";
+        // Use customizable prompt from PromptManager
+        $prompt = $this->promptManager->getPrompt('campaign_topics', [
+            'count' => $count,
+            'niche' => $niche,
+            'seed_keywords' => $keywordsStr,
+            'target_audience' => $campaign->target_audience ?? 'general audience',
+            'existing_topics' => $existingTopicsStr,
+            'year' => $currentYear
+        ]);
 
         // Call AI to generate topics
         $result = $aiProvider->generate($prompt, [

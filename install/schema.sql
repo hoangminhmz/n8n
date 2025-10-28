@@ -120,6 +120,27 @@ CREATE TABLE IF NOT EXISTS `settings` (
     `autoload` TINYINT(1) DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- AI Prompt Templates System
+
+CREATE TABLE IF NOT EXISTS `prompt_templates` (
+    `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `template_key` VARCHAR(100) UNIQUE NOT NULL,
+    `template_name` VARCHAR(255) NOT NULL,
+    `category` VARCHAR(50) NOT NULL,
+    `default_prompt` TEXT NOT NULL,
+    `custom_prompt` TEXT,
+    `is_active` TINYINT(1) DEFAULT 0,
+    `variables` TEXT,
+    `description` TEXT,
+    `example_output` TEXT,
+    `created_at` DATETIME,
+    `updated_at` DATETIME,
+    `updated_by` INT(11),
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `idx_template_key` (`template_key`),
+    KEY `idx_category` (`category`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Pages System
 
 CREATE TABLE IF NOT EXISTS `pages` (
@@ -478,3 +499,25 @@ INSERT INTO `settings` (`key`, `value`) VALUES
 ('timezone', 'UTC'),
 ('image_ai_provider', 'auto'),
 ('content_ai_provider', 'auto');
+
+-- Insert default AI prompt templates
+INSERT INTO `prompt_templates` (`template_key`, `template_name`, `category`, `default_prompt`, `variables`, `description`, `example_output`, `is_active`, `created_at`) VALUES
+('post_title', 'Post Title Generation', 'post', 'Generate SEO metadata for an article about: "{{topic}}"\n\nPrimary keyword: {{primary_keyword}}\n\nCreate:\n1. An SEO-optimized title (55-60 characters, include keyword)\n2. A meta description (150-160 characters, compelling, include keyword)\n3. An alternative SEO title for rich snippets\n\nFormat as JSON:\n{\n  "title": "Catchy title here",\n  "seo_title": "SEO optimized title",\n  "meta_description": "Compelling description"\n}', '["{{topic}}", "{{primary_keyword}}", "{{niche}}", "{{tone}}", "{{year}}"]', 'Generates SEO-optimized title and meta description for blog posts', '{"title": "Best Coffee Makers 2025", "seo_title": "Best Coffee Makers 2025 - Complete Buying Guide", "meta_description": "Discover the top coffee makers for 2025..."}', 0, NOW()),
+
+('post_outline', 'Content Outline Generation', 'post', 'Create a detailed SEO-optimized article outline for: "{{topic}}"\n\nPrimary keywords: {{primary_keywords}}\nLSI keywords: {{lsi_keywords}}\n\nRequirements:\n- Include H1, H2, and H3 headings\n- Add an FAQ section with 5 questions\n- Target word count: {{word_count_min}}-{{word_count_max}} words\n- Optimize for featured snippets\n- Include introduction and conclusion\n\nFormat as JSON:\n{\n  "h1": "Main title",\n  "sections": [\n    {"h2": "Section title", "h3": ["Subsection 1", "Subsection 2"]},\n    ...\n  ],\n  "faqs": [\n    {"question": "Q1", "answer_hint": "brief hint"},\n    ...\n  ]\n}', '["{{topic}}", "{{primary_keywords}}", "{{lsi_keywords}}", "{{word_count_min}}", "{{word_count_max}}", "{{niche}}"]', 'Creates detailed content outline with headings and FAQ structure', '{"h1": "Best Coffee Makers", "sections": [...]}', 0, NOW()),
+
+('post_content', 'Article Content Writing', 'post', 'Write a comprehensive, engaging blog article based on this outline:\n\n{{outline}}\n\nRequirements:\n- Tone: {{tone}}\n- Naturally include these keywords: {{primary_keywords}}\n- Write in clear, engaging paragraphs\n- Add relevant examples and statistics\n- Include [PRODUCT_LINK] markers where affiliate products should be mentioned\n- Format as HTML with proper heading tags (h1, h2, h3)\n- Add bullet points and numbered lists where appropriate\n- Make it SEO-optimized and reader-friendly\n\nWrite the complete article content now:', '["{{outline}}", "{{tone}}", "{{primary_keywords}}", "{{niche}}", "{{word_count}}"]', 'Generates full article content from outline', '<h1>Best Coffee Makers</h1><p>Coffee enthusiasts know...</p>', 0, NOW()),
+
+('post_meta_description', 'Meta Description Generation', 'post', 'Create a compelling meta description (150-160 characters) for an article titled "{{title}}".\n\nFocus keyword: {{focus_keyword}}\nNiche: {{niche}}\n\nRequirements:\n- Exactly 150-160 characters\n- Include the focus keyword naturally\n- Make it click-worthy and informative\n- Use active voice\n- Create urgency or curiosity\n\nOutput ONLY the meta description text, no quotes:', '["{{title}}", "{{focus_keyword}}", "{{niche}}"]', 'Creates optimized meta descriptions for search results', 'Discover the best coffee makers for 2025. Expert reviews, comparisons, and buying guide to find your perfect brew.', 0, NOW()),
+
+('post_excerpt', 'Post Excerpt Generation', 'post', 'Create a compelling excerpt (140-160 characters) for this article:\n\nTitle: {{title}}\nFirst paragraph: {{first_paragraph}}\n\nRequirements:\n- 140-160 characters\n- Engaging and informative\n- Complete sentence\n- Encourage reading the full article\n\nOutput ONLY the excerpt text:', '["{{title}}", "{{first_paragraph}}", "{{content}}"]', 'Generates engaging excerpts for post previews', 'Learn how to choose the perfect coffee maker for your home. Expert tips and top recommendations included.', 0, NOW()),
+
+('post_faq', 'FAQ Generation', 'post', 'Generate 5 frequently asked questions and answers for an article about "{{topic}}".\n\nNiche: {{niche}}\nTarget audience: {{target_audience}}\n\nRequirements:\n- Questions should be natural and commonly searched\n- Answers should be concise (2-3 sentences)\n- Cover different aspects of the topic\n- SEO-friendly question format\n\nFormat as JSON array:\n[\n  {"question": "Question 1?", "answer": "Answer 1"},\n  ...\n]', '["{{topic}}", "{{niche}}", "{{target_audience}}", "{{content}}"]', 'Creates FAQ section for articles', '[{"question": "What is the best coffee maker?", "answer": "..."}]', 0, NOW()),
+
+('campaign_topics', 'Campaign Topic Generation', 'campaign', 'Generate {{count}} unique, engaging blog topic ideas for the {{niche}} niche.\n\nSeed keywords: {{seed_keywords}}\nTarget audience: {{target_audience}}\n\nAVOID these existing topics (be creative and different):\n{{existing_topics}}\n\nRequirements:\n- Each topic should be specific and actionable\n- Include search-friendly keywords naturally\n- Mix formats: how-to, listicles, guides, comparisons\n- Consider current trends in {{year}}\n- Topics should rank well in Google\n\nOutput as JSON array:\n["Topic 1", "Topic 2", ...]', '["{{count}}", "{{niche}}", "{{seed_keywords}}", "{{target_audience}}", "{{existing_topics}}", "{{year}}"]', 'Generates unique topic ideas for campaigns avoiding duplicates', '["10 Best Coffee Makers for Small Kitchens", "How to Clean Your Coffee Maker: Complete Guide"]', 0, NOW()),
+
+('campaign_keywords', 'LSI Keyword Research', 'campaign', 'Generate LSI (Latent Semantic Indexing) keywords for the topic: "{{topic}}"\n\nPrimary keyword: {{primary_keyword}}\nNiche: {{niche}}\n\nRequirements:\n- Generate 10-15 related keywords\n- Include long-tail variations\n- Natural language variations\n- Question-based keywords\n- Intent-based keywords\n\nOutput as JSON array:\n["keyword1", "keyword2", ...]', '["{{topic}}", "{{primary_keyword}}", "{{niche}}"]', 'Generates LSI keywords for better SEO coverage', '["coffee maker reviews", "best drip coffee makers", "how to choose coffee maker"]', 0, NOW()),
+
+('image_generation', 'AI Image Generation Prompt', 'image', 'Create a {{style}} image that visually represents: {{topic}}.\n\nThe image should be a high-quality photograph or illustration directly related to this topic.\n\nNO TEXT, NO WORDS, NO LETTERS anywhere in the image.\n\nFocus on visual storytelling - show the concept through imagery alone.\n\nEye-catching, professional, suitable for blog featured image and social media.\n\n16:9 aspect ratio, cinematic composition, visually appealing.', '["{{topic}}", "{{style}}", "{{niche}}"]', 'Creates prompts for AI image generation (DALL-E, Midjourney)', 'Professional image of modern coffee maker on kitchen counter...', 0, NOW()),
+
+('image_search', 'Image Search Keywords', 'image', 'Extract 3-4 main keywords from this topic for searching stock photos: "{{topic}}"\n\nRequirements:\n- Remove filler words (the, and, for, with, etc.)\n- Focus on visual, concrete nouns\n- Suitable for Unsplash/Pexels search\n- Avoid abstract concepts\n\nOutput keywords separated by spaces:', '["{{topic}}", "{{niche}}"]', 'Extracts keywords for searching stock photo databases', 'coffee maker kitchen modern', 0, NOW());
