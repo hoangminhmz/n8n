@@ -31,50 +31,6 @@ $requiredPostsColumns = [
     'has_table_of_contents', 'seo_score', 'last_seo_check'
 ];
 
-// Check if running the fix
-if (isset($_POST['fix_database'])) {
-    try {
-        $sql = file_get_contents(__DIR__ . '/../install/schema.sql');
-
-        // Execute the full schema
-        // Note: This is safe because we're using CREATE TABLE IF NOT EXISTS
-        // It won't drop existing data
-
-        $statements = explode(';', $sql);
-        $executed = 0;
-        $errors = 0;
-
-        foreach ($statements as $statement) {
-            $statement = trim($statement);
-            if (empty($statement) || strpos($statement, '--') === 0) {
-                continue;
-            }
-
-            try {
-                $db->query($statement);
-                $executed++;
-            } catch (Exception $e) {
-                $errors++;
-                // Don't show all errors, they're expected for existing tables
-            }
-        }
-
-        $messages[] = [
-            'type' => 'success',
-            'text' => "Database update completed! Executed {$executed} statements."
-        ];
-
-        // Refresh to check results
-        echo '<meta http-equiv="refresh" content="2">';
-
-    } catch (Exception $e) {
-        $messages[] = [
-            'type' => 'error',
-            'text' => "Error updating database: " . $e->getMessage()
-        ];
-    }
-}
-
 // Check posts table structure
 try {
     $result = $db->query("DESCRIBE posts");
@@ -312,15 +268,14 @@ try {
                 <div class="fix-section">
                     <h2>🔧 Database Needs Update</h2>
                     <p>
-                        Your database structure is outdated or incomplete. Click the button below to automatically
-                        update it to the latest version. This will add missing columns and tables without affecting
-                        your existing data.
+                        Your database structure is outdated or incomplete. Click the button below to run the migration
+                        tool. It will safely add missing columns and tables without affecting your existing data.
                     </p>
-                    <form method="POST">
-                        <button type="submit" name="fix_database">
-                            🚀 Update Database Now
+                    <a href="database-migrate.php" style="display: inline-block; margin-top: 1rem;">
+                        <button type="button" style="cursor: pointer;">
+                            🚀 Run Migration Tool
                         </button>
-                    </form>
+                    </a>
                 </div>
 
                 <div class="info-box">
