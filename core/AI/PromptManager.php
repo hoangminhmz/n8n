@@ -24,13 +24,23 @@ class PromptManager {
             $template = $this->cache[$templateKey];
         } else {
             // Fetch from database
-            $template = $this->db->queryOne(
-                "SELECT * FROM prompt_templates WHERE template_key = ?",
-                [$templateKey]
-            );
+            try {
+                $template = $this->db->queryOne(
+                    "SELECT * FROM prompt_templates WHERE template_key = ?",
+                    [$templateKey]
+                );
+            } catch (Exception $e) {
+                // Database error - use fallback
+                $template = null;
+            }
 
             if (!$template) {
-                throw new Exception("Prompt template not found: {$templateKey}");
+                // Use fallback default prompts if template not found in database
+                $template = $this->getFallbackTemplate($templateKey);
+
+                if (!$template) {
+                    throw new Exception("Prompt template not found: {$templateKey}");
+                }
             }
 
             // Cache it
@@ -46,6 +56,67 @@ class PromptManager {
         $finalPrompt = $this->replaceVariables($prompt, $variables);
 
         return $finalPrompt;
+    }
+
+    /**
+     * Get fallback template if database is not available
+     * @param string $templateKey Template key
+     * @return object|null Template object or null
+     */
+    private function getFallbackTemplate($templateKey) {
+        $fallbacks = [
+            'campaign_topics' => [
+                'template_key' => 'campaign_topics',
+                'template_name' => 'Campaign Topic Generation',
+                'category' => 'campaign',
+                'default_prompt' => 'Generate {{count}} unique, engaging blog topic ideas for the {{niche}} niche.
+
+Seed keywords: {{seed_keywords}}
+Target audience: {{target_audience}}
+
+AVOID these existing topics (be creative and different):
+{{existing_topics}}
+
+Requirements:
+- Each topic should be specific and actionable
+- Include search-friendly keywords naturally
+- Mix formats: how-to, listicles, guides, comparisons
+- Consider current trends in {{year}}
+- Topics should rank well in Google
+
+Output as JSON array:
+["Topic 1", "Topic 2", ...]',
+                'custom_prompt' => null,
+                'is_active' => 0
+            ],
+            'post_title' => [
+                'template_key' => 'post_title',
+                'template_name' => 'Post Title Generation',
+                'category' => 'post',
+                'default_prompt' => 'Create an engaging, SEO-optimized title for a blog post about: {{topic}}
+
+Primary keyword: {{primary_keyword}}
+Niche: {{niche}}
+Tone: {{tone}}
+Year: {{year}}
+
+Requirements:
+- Include the primary keyword naturally
+- Keep it under 60 characters for SEO
+- Make it compelling and click-worthy
+- Match the {{tone}} tone
+
+Output just the title, nothing else.',
+                'custom_prompt' => null,
+                'is_active' => 0
+            ]
+        ];
+
+        if (isset($fallbacks[$templateKey])) {
+            return (object) $fallbacks[$templateKey];
+        }
+
+        return null;
     }
 
     /**
