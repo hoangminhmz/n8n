@@ -4,9 +4,16 @@
  * Customize AI prompts for content generation
  */
 
-$pageTitle = 'AI Prompt Templates';
-require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/../config.php';
+require_once SITE_PATH . '/core/Database.php';
+require_once SITE_PATH . '/core/Auth.php';
 require_once SITE_PATH . '/core/AI/PromptManager.php';
+
+$pageTitle = 'AI Prompt Templates';
+$auth = new Auth();
+$auth->requireLogin();
+
+require_once __DIR__ . '/includes/header.php';
 
 $promptManager = new PromptManager();
 $message = '';
