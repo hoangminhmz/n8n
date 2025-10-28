@@ -196,13 +196,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
                     ]);
 
-                    // Insert admin user
+                    // Check if admin user already exists
                     $hashedPassword = password_hash($adminPass, PASSWORD_BCRYPT);
-                    $stmt = $pdo->prepare("INSERT INTO users (username, email, password, role, created_at) VALUES (?, ?, ?, 'admin', NOW())");
-                    $stmt->execute([$adminUser, $adminEmail, $hashedPassword]);
+                    $checkUser = $pdo->prepare("SELECT id FROM users WHERE username = ?");
+                    $checkUser->execute([$adminUser]);
 
-                    // Insert default category
-                    $pdo->exec("INSERT INTO categories (name, slug, description) VALUES ('Uncategorized', 'uncategorized', 'Default category')");
+                    if ($checkUser->fetch()) {
+                        // Update existing admin user
+                        $stmt = $pdo->prepare("UPDATE users SET email = ?, password = ?, role = 'admin' WHERE username = ?");
+                        $stmt->execute([$adminEmail, $hashedPassword, $adminUser]);
+                    } else {
+                        // Insert new admin user
+                        $stmt = $pdo->prepare("INSERT INTO users (username, email, password, role, created_at) VALUES (?, ?, ?, 'admin', NOW())");
+                        $stmt->execute([$adminUser, $adminEmail, $hashedPassword]);
+                    }
+
+                    // Insert default category if not exists
+                    $checkCat = $pdo->query("SELECT COUNT(*) FROM categories WHERE slug = 'uncategorized'")->fetchColumn();
+                    if ($checkCat == 0) {
+                        $pdo->exec("INSERT INTO categories (name, slug, description) VALUES ('Uncategorized', 'uncategorized', 'Default category')");
+                    }
 
                     // Store admin info
                     $_SESSION['install_data']['admin_created'] = true;
