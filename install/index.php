@@ -257,10 +257,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $configContent .= "define('DB_USER', '" . addslashes($installData['db_user']) . "');\n";
             $configContent .= "define('DB_PASS', '" . addslashes($installData['db_pass']) . "');\n\n";
 
+            // Calculate BASE_PATH from SITE_URL
+            $parsedUrl = parse_url($installData['site_url']);
+            $basePath = isset($parsedUrl['path']) ? rtrim($parsedUrl['path'], '/') . '/' : '/';
+
             $configContent .= "// Site Configuration\n";
             $configContent .= "define('SITE_URL', '" . addslashes($installData['site_url']) . "');\n";
             $configContent .= "define('SITE_PATH', dirname(__FILE__));\n";
-            $configContent .= "define('BASE_PATH', '/');\n\n";
+            $configContent .= "define('BASE_PATH', '" . addslashes($basePath) . "');\n\n";
 
             $configContent .= "// AI Provider API Keys\n";
             $configContent .= "define('OPENAI_API_KEY', '" . addslashes($openaiKey) . "');\n";
