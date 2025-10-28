@@ -28,6 +28,12 @@ class DatabaseMigration {
                 return true;
             }
 
+            // Check for prompt_templates table
+            $result = $this->db->query("SHOW TABLES LIKE 'prompt_templates'");
+            if (empty($result)) {
+                return true;
+            }
+
             return false;
         } catch (Exception $e) {
             return true;
@@ -171,6 +177,29 @@ class DatabaseMigration {
             $results['tables_created']++;
         } catch (Exception $e) {}
 
+        // Create prompt_templates table
+        try {
+            $this->db->query("CREATE TABLE IF NOT EXISTS `prompt_templates` (
+                `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+                `template_key` VARCHAR(100) UNIQUE NOT NULL,
+                `template_name` VARCHAR(255) NOT NULL,
+                `category` VARCHAR(50) NOT NULL,
+                `default_prompt` TEXT NOT NULL,
+                `custom_prompt` TEXT,
+                `is_active` TINYINT(1) DEFAULT 0,
+                `variables` TEXT,
+                `description` TEXT,
+                `example_output` TEXT,
+                `created_at` DATETIME,
+                `updated_at` DATETIME,
+                `updated_by` INT(11),
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `idx_template_key` (`template_key`),
+                KEY `idx_category` (`category`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+            $results['tables_created']++;
+        } catch (Exception $e) {}
+
         return $results;
     }
 
@@ -183,6 +212,7 @@ class DatabaseMigration {
             'missing_posts_columns' => [],
             'has_pages' => false,
             'has_menus' => false,
+            'has_prompt_templates' => false,
             'needs_migration' => false
         ];
 
@@ -210,7 +240,14 @@ class DatabaseMigration {
             $result = $this->db->query("SHOW TABLES LIKE 'menus'");
             $status['has_menus'] = !empty($result);
 
-            $status['needs_migration'] = !empty($status['missing_posts_columns']) || !$status['has_pages'] || !$status['has_menus'];
+            // Check prompt_templates table
+            $result = $this->db->query("SHOW TABLES LIKE 'prompt_templates'");
+            $status['has_prompt_templates'] = !empty($result);
+
+            $status['needs_migration'] = !empty($status['missing_posts_columns'])
+                || !$status['has_pages']
+                || !$status['has_menus']
+                || !$status['has_prompt_templates'];
 
         } catch (Exception $e) {
             $status['needs_migration'] = true;

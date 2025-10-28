@@ -201,6 +201,115 @@ if (isset($_POST['run_migration'])) {
         }
     }
 
+    // Step 6: Create prompt_templates table for AI prompt customization
+    try {
+        $sql = "CREATE TABLE IF NOT EXISTS `prompt_templates` (
+            `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `template_key` VARCHAR(100) UNIQUE NOT NULL,
+            `template_name` VARCHAR(255) NOT NULL,
+            `category` VARCHAR(50) NOT NULL,
+            `default_prompt` TEXT NOT NULL,
+            `custom_prompt` TEXT,
+            `is_active` TINYINT(1) DEFAULT 0,
+            `variables` TEXT,
+            `description` TEXT,
+            `example_output` TEXT,
+            `created_at` DATETIME,
+            `updated_at` DATETIME,
+            `updated_by` INT(11),
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `idx_template_key` (`template_key`),
+            KEY `idx_category` (`category`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+
+        $db->query($sql);
+        $messages[] = ['type' => 'success', 'text' => "Created table: prompt_templates"];
+        $executed++;
+
+        // Insert default AI prompt templates
+        $checkExisting = $db->queryOne("SELECT COUNT(*) as count FROM prompt_templates");
+        if ($checkExisting->count == 0) {
+            // Read default prompts from schema.sql section
+            $defaultPrompts = [
+                [
+                    'template_key' => 'post_title',
+                    'template_name' => 'Post Title Generation',
+                    'category' => 'post',
+                    'default_prompt' => "Generate SEO metadata for an article about: \"{{topic}}\"\n\nPrimary keyword: {{primary_keyword}}\n\nCreate:\n1. An SEO-optimized title (55-60 characters, include keyword)\n2. A meta description (150-160 characters, compelling, include keyword)\n3. An alternative SEO title for rich snippets\n\nFormat as JSON:\n{\n  \"title\": \"Catchy title here\",\n  \"seo_title\": \"SEO optimized title\",\n  \"meta_description\": \"Compelling description\"\n}",
+                    'variables' => '["{{topic}}", "{{primary_keyword}}", "{{niche}}", "{{tone}}", "{{year}}"]',
+                    'description' => 'Generates SEO-optimized title and meta description for blog posts'
+                ],
+                [
+                    'template_key' => 'post_outline',
+                    'template_name' => 'Content Outline Generation',
+                    'category' => 'post',
+                    'default_prompt' => "Create a detailed SEO-optimized article outline for: \"{{topic}}\"\n\nPrimary keywords: {{primary_keywords}}\nLSI keywords: {{lsi_keywords}}\n\nRequirements:\n- Include H1, H2, and H3 headings\n- Add an FAQ section with 5 questions\n- Target word count: {{word_count_min}}-{{word_count_max}} words\n- Optimize for featured snippets\n- Include introduction and conclusion\n\nFormat as JSON:\n{\n  \"h1\": \"Main title\",\n  \"sections\": [\n    {\"h2\": \"Section title\", \"h3\": [\"Subsection 1\", \"Subsection 2\"]},\n    ...\n  ],\n  \"faqs\": [\n    {\"question\": \"Q1\", \"answer_hint\": \"brief hint\"},\n    ...\n  ]\n}",
+                    'variables' => '["{{topic}}", "{{primary_keywords}}", "{{lsi_keywords}}", "{{word_count_min}}", "{{word_count_max}}", "{{niche}}"]',
+                    'description' => 'Creates detailed content outline with headings and FAQ structure'
+                ],
+                [
+                    'template_key' => 'post_content',
+                    'template_name' => 'Article Content Writing',
+                    'category' => 'post',
+                    'default_prompt' => "Write a comprehensive, engaging blog article based on this outline:\n\n{{outline}}\n\nRequirements:\n- Tone: {{tone}}\n- Naturally include these keywords: {{primary_keywords}}\n- Write in clear, engaging paragraphs\n- Add relevant examples and statistics\n- Include [PRODUCT_LINK] markers where affiliate products should be mentioned\n- Format as HTML with proper heading tags (h1, h2, h3)\n- Add bullet points and numbered lists where appropriate\n- Make it SEO-optimized and reader-friendly\n\nWrite the complete article content now:",
+                    'variables' => '["{{outline}}", "{{tone}}", "{{primary_keywords}}", "{{niche}}", "{{word_count}}"]',
+                    'description' => 'Generates full article content from outline'
+                ],
+                [
+                    'template_key' => 'campaign_topics',
+                    'template_name' => 'Campaign Topic Generation',
+                    'category' => 'campaign',
+                    'default_prompt' => "Generate {{count}} unique, engaging blog topic ideas for the {{niche}} niche.\n\nSeed keywords: {{seed_keywords}}\nTarget audience: {{target_audience}}\n\nAVOID these existing topics (be creative and different):\n{{existing_topics}}\n\nRequirements:\n- Each topic should be specific and actionable\n- Include search-friendly keywords naturally\n- Mix formats: how-to, listicles, guides, comparisons\n- Consider current trends in {{year}}\n- Topics should rank well in Google\n\nOutput as JSON array:\n[\"Topic 1\", \"Topic 2\", ...]",
+                    'variables' => '["{{count}}", "{{niche}}", "{{seed_keywords}}", "{{target_audience}}", "{{existing_topics}}", "{{year}}"]',
+                    'description' => 'Generates unique topic ideas for campaigns avoiding duplicates'
+                ],
+                [
+                    'template_key' => 'image_generation',
+                    'template_name' => 'AI Image Generation Prompt',
+                    'category' => 'image',
+                    'default_prompt' => "Create a {{style}} image that visually represents: {{topic}}.\n\nThe image should be a high-quality photograph or illustration directly related to this topic.\n\nNO TEXT, NO WORDS, NO LETTERS anywhere in the image.\n\nFocus on visual storytelling - show the concept through imagery alone.\n\nEye-catching, professional, suitable for blog featured image and social media.\n\n16:9 aspect ratio, cinematic composition, visually appealing.",
+                    'variables' => '["{{topic}}", "{{style}}", "{{niche}}"]',
+                    'description' => 'Creates prompts for AI image generation (DALL-E, Midjourney)'
+                ],
+                [
+                    'template_key' => 'image_search',
+                    'template_name' => 'Image Search Keywords',
+                    'category' => 'image',
+                    'default_prompt' => "Extract 3-4 main keywords from this topic for searching stock photos: \"{{topic}}\"\n\nRequirements:\n- Remove filler words (the, and, for, with, etc.)\n- Focus on visual, concrete nouns\n- Suitable for Unsplash/Pexels search\n- Avoid abstract concepts\n\nOutput keywords separated by spaces:",
+                    'variables' => '["{{topic}}", "{{niche}}"]',
+                    'description' => 'Extracts keywords for searching stock photo databases'
+                ]
+            ];
+
+            foreach ($defaultPrompts as $prompt) {
+                try {
+                    $db->insert('prompt_templates', [
+                        'template_key' => $prompt['template_key'],
+                        'template_name' => $prompt['template_name'],
+                        'category' => $prompt['category'],
+                        'default_prompt' => $prompt['default_prompt'],
+                        'variables' => $prompt['variables'],
+                        'description' => $prompt['description'],
+                        'is_active' => 0,
+                        'created_at' => date('Y-m-d H:i:s')
+                    ]);
+                } catch (Exception $e) {
+                    // Skip if already exists
+                }
+            }
+
+            $messages[] = ['type' => 'success', 'text' => "Inserted " . count($defaultPrompts) . " default AI prompt templates"];
+        } else {
+            $messages[] = ['type' => 'info', 'text' => "Prompt templates already exist (skipped)"];
+        }
+
+    } catch (Exception $e) {
+        if (strpos($e->getMessage(), 'already exists') === false) {
+            $messages[] = ['type' => 'error', 'text' => "Error creating prompt_templates table: " . $e->getMessage()];
+            $errors++;
+        }
+    }
+
     $messages[] = ['type' => 'success', 'text' => "Migration completed! Executed: {$executed}, Errors: {$errors}"];
 
     // Redirect to check page
@@ -342,6 +451,7 @@ if (isset($_POST['run_migration'])) {
                         <li>Add missing columns to <code>categories</code> table</li>
                         <li>Create <code>pages</code> table if it doesn't exist</li>
                         <li>Create <code>menus</code> and <code>menu_items</code> tables</li>
+                        <li>Create <code>prompt_templates</code> table with 6 default AI prompts</li>
                         <li>Insert sample pages and default menus</li>
                     </ul>
                     <p style="margin-top: 1rem;">

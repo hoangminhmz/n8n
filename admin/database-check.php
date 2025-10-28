@@ -64,7 +64,7 @@ try {
 }
 
 // Check other important tables
-$requiredTables = ['posts', 'pages', 'categories', 'users', 'settings', 'menus', 'menu_items', 'campaigns', 'ai_queue'];
+$requiredTables = ['posts', 'pages', 'categories', 'users', 'settings', 'menus', 'menu_items', 'campaigns', 'ai_queue', 'prompt_templates'];
 $existingTables = [];
 
 try {
