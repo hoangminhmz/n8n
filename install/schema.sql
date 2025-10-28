@@ -474,22 +474,22 @@ VALUES
 ('Primary Menu', 'primary', 'Main navigation menu in header', NOW()),
 ('Footer Menu', 'footer', 'Footer navigation menu', NOW());
 
--- Insert default menu items
-SET @primary_menu_id = LAST_INSERT_ID();
-
+-- Insert default menu items (using subquery to get primary menu ID)
 INSERT INTO `menu_items` (`menu_id`, `type`, `object_id`, `custom_url`, `title`, `menu_order`, `created_at`)
-VALUES
-(@primary_menu_id, 'custom', NULL, '/', 'Home', 0, NOW());
+SELECT `id`, 'custom', NULL, '/', 'Home', 0, NOW()
+FROM `menus` WHERE `location` = 'primary' LIMIT 1;
 
 -- Add About page to menu
 INSERT INTO `menu_items` (`menu_id`, `type`, `object_id`, `title`, `menu_order`, `created_at`)
-SELECT @primary_menu_id, 'page', `id`, 'About', 1, NOW()
-FROM `pages` WHERE `slug` = 'about' LIMIT 1;
+SELECT m.`id`, 'page', p.`id`, 'About', 1, NOW()
+FROM `menus` m, `pages` p
+WHERE m.`location` = 'primary' AND p.`slug` = 'about' LIMIT 1;
 
 -- Add Contact page to menu
 INSERT INTO `menu_items` (`menu_id`, `type`, `object_id`, `title`, `menu_order`, `created_at`)
-SELECT @primary_menu_id, 'page', `id`, 'Contact', 2, NOW()
-FROM `pages` WHERE `slug` = 'contact' LIMIT 1;
+SELECT m.`id`, 'page', p.`id`, 'Contact', 2, NOW()
+FROM `menus` m, `pages` p
+WHERE m.`location` = 'primary' AND p.`slug` = 'contact' LIMIT 1;
 
 -- Insert default settings
 INSERT INTO `settings` (`key`, `value`) VALUES
