@@ -12,18 +12,20 @@ class GeminiProvider extends AIProvider {
     /**
      * Constructor
      * @param string $api_key Google AI Studio API key
-     * @param string $model Model to use (default: gemini-2.0-flash-exp)
+     * @param string $model Model to use (default: gemini-1.5-flash)
      */
-    public function __construct($api_key, $model = 'gemini-2.0-flash-exp') {
+    public function __construct($api_key, $model = 'gemini-1.5-flash') {
         parent::__construct($api_key, $model);
 
-        // Map model names to correct API names
+        // Map common model names to correct Google API names
+        // Based on: https://ai.google.dev/gemini-api/docs/models/gemini
         $modelMap = [
-            'gemini-2.5-flash' => 'gemini-2.5-flash',
             'gemini-2.0-flash-exp' => 'gemini-2.0-flash-exp',
-            'gemini-1.5-pro' => 'gemini-1.5-pro-latest',
-            'gemini-1.5-flash' => 'gemini-flash-latest',
-            'gemini-pro' => 'gemini-pro'
+            'gemini-1.5-flash' => 'gemini-1.5-flash',
+            'gemini-1.5-flash-8b' => 'gemini-1.5-flash-8b',
+            'gemini-1.5-pro' => 'gemini-1.5-pro',
+            'gemini-pro' => 'gemini-1.5-pro', // Alias to latest stable
+            'gemini-flash' => 'gemini-1.5-flash', // Alias to latest flash
         ];
 
         // Use mapped model name if exists
