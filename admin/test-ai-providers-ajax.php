@@ -75,7 +75,7 @@ function testGemini() {
 
     require_once SITE_PATH . '/core/AI/GeminiProvider.php';
 
-    $gemini = new GeminiProvider($apiKey, 'gemini-1.5-flash');
+    $gemini = new GeminiProvider($apiKey, 'gemini-2.5-flash');
 
     // Test prompt - generate 5 blog topics
     $prompt = 'Generate 5 unique blog topic ideas about "Coffee and Productivity" in JSON array format.
