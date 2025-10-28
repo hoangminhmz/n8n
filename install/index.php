@@ -39,25 +39,85 @@ function testDatabaseConnection($host, $dbname, $username, $password) {
 function executeSQLFile($pdo, $filepath) {
     $sql = file_get_contents($filepath);
 
-    // Split SQL by statements (handle semicolons properly)
-    $statements = array_filter(
-        array_map('trim', explode(';', $sql)),
-        function($stmt) {
-            return !empty($stmt) && substr($stmt, 0, 2) !== '--';
+    // Remove comments
+    $sql = preg_replace('/^--.*$/m', '', $sql);
+    $sql = preg_replace('/\/\*.*?\*\//s', '', $sql);
+
+    // Split by semicolon but handle strings properly
+    $statements = [];
+    $buffer = '';
+    $inString = false;
+    $stringChar = '';
+    $escaped = false;
+
+    for ($i = 0; $i < strlen($sql); $i++) {
+        $char = $sql[$i];
+
+        // Handle escape sequences
+        if ($escaped) {
+            $buffer .= $char;
+            $escaped = false;
+            continue;
         }
-    );
+
+        if ($char === '\\') {
+            $buffer .= $char;
+            $escaped = true;
+            continue;
+        }
+
+        // Handle strings
+        if (($char === '"' || $char === "'") && !$inString) {
+            $inString = true;
+            $stringChar = $char;
+            $buffer .= $char;
+            continue;
+        }
+
+        if ($char === $stringChar && $inString) {
+            $inString = false;
+            $stringChar = '';
+            $buffer .= $char;
+            continue;
+        }
+
+        // Handle semicolons
+        if ($char === ';' && !$inString) {
+            $stmt = trim($buffer);
+            if (!empty($stmt)) {
+                $statements[] = $stmt;
+            }
+            $buffer = '';
+            continue;
+        }
+
+        $buffer .= $char;
+    }
+
+    // Add last statement if any
+    $stmt = trim($buffer);
+    if (!empty($stmt)) {
+        $statements[] = $stmt;
+    }
 
     $executed = 0;
     $failed = 0;
     $errors = [];
 
-    foreach ($statements as $statement) {
+    foreach ($statements as $index => $statement) {
+        // Skip empty statements
+        if (empty($statement)) {
+            continue;
+        }
+
         try {
             $pdo->exec($statement);
             $executed++;
         } catch (PDOException $e) {
             $failed++;
-            $errors[] = $e->getMessage();
+            // Get first 100 chars of statement for error reporting
+            $stmtPreview = substr($statement, 0, 100);
+            $errors[] = "Statement #" . ($index + 1) . ": " . $e->getMessage() . " (SQL: " . $stmtPreview . "...)";
         }
     }
 
