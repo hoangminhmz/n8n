@@ -264,7 +264,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $configContent .= "// Site Configuration\n";
             $configContent .= "define('SITE_URL', '" . addslashes($installData['site_url']) . "');\n";
             $configContent .= "define('SITE_PATH', dirname(__FILE__));\n";
-            $configContent .= "define('BASE_PATH', '" . addslashes($basePath) . "');\n\n";
+            $configContent .= "define('BASE_PATH', '" . addslashes($basePath) . "');\n";
+            $configContent .= "define('CURRENT_THEME', 'default'); // Current active theme\n";
+            $configContent .= "define('CONTENT_PATH', SITE_PATH . '/content'); // Content directory for uploads\n\n";
 
             $configContent .= "// AI Provider API Keys\n";
             $configContent .= "define('OPENAI_API_KEY', '" . addslashes($openaiKey) . "');\n";

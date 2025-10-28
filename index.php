@@ -10,11 +10,22 @@ if (file_exists(__DIR__ . '/config.php')) {
 } else {
     // Redirect to installation if config doesn't exist
     if (file_exists(__DIR__ . '/install/index.php')) {
-        header('Location: /install/index.php');
+        // Calculate base path for redirect
+        $scriptPath = dirname($_SERVER['SCRIPT_NAME']);
+        $basePath = $scriptPath === '/' ? '/' : rtrim($scriptPath, '/') . '/';
+        header('Location: ' . $basePath . 'install/index.php');
         exit;
     } else {
         die('Configuration file not found. Please run the installation wizard at /install/');
     }
+}
+
+// Define fallback constants if not set
+if (!defined('CURRENT_THEME')) {
+    define('CURRENT_THEME', 'default');
+}
+if (!defined('CONTENT_PATH')) {
+    define('CONTENT_PATH', SITE_PATH . '/content');
 }
 
 // Load core classes
