@@ -89,7 +89,9 @@ class ThemeCustomizer {
 Base theme: Simple, clean blog design with card/list layouts
 Current style: Modern, minimalist, content-focused
 
-Output as JSON with this exact structure:
+IMPORTANT: Respond with ONLY a valid JSON object, no explanations, no markdown, no extra text.
+
+Generate JSON with this exact structure:
 {
   "colors": {
     "primary": "#667eea",
@@ -141,22 +143,45 @@ Output ONLY the JSON, no explanations.';
      * Parse AI response to extract JSON
      */
     private function parseAIResponse($content) {
+        $originalContent = $content;
         $content = trim($content);
 
-        // Try to extract JSON from markdown code blocks
-        if (preg_match('/```(?:json)?\s*(\{[\s\S]*?\})\s*```/', $content, $matches)) {
-            $content = $matches[1];
+        // Strategy 1: Try to extract from markdown code blocks (```json or ```)
+        if (preg_match('/```(?:json)?\s*(\{[\s\S]*?\})\s*```/s', $content, $matches)) {
+            $content = trim($matches[1]);
+        }
+        // Strategy 2: Try to extract from single backticks
+        elseif (preg_match('/`(\{[\s\S]*?\})`/s', $content, $matches)) {
+            $content = trim($matches[1]);
+        }
+        // Strategy 3: Try to find the first { to last } (complete JSON object)
+        elseif (preg_match('/(\{(?:[^{}]|(?R))*\})/s', $content, $matches)) {
+            $content = trim($matches[1]);
+        }
+        // Strategy 4: Remove any text before first { and after last }
+        else {
+            $firstBrace = strpos($content, '{');
+            $lastBrace = strrpos($content, '}');
+
+            if ($firstBrace !== false && $lastBrace !== false && $lastBrace > $firstBrace) {
+                $content = substr($content, $firstBrace, $lastBrace - $firstBrace + 1);
+            }
         }
 
-        // Try to extract JSON object
-        if (preg_match('/\{[\s\S]*\}/', $content, $matches)) {
-            $content = $matches[0];
-        }
+        // Clean up common issues
+        $content = preg_replace('/[\x00-\x1F\x7F]/u', '', $content); // Remove control characters
+        $content = trim($content);
 
+        // Try to decode
         $data = json_decode($content, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new Exception('Failed to parse AI response as JSON: ' . json_last_error_msg());
+            // Log the error with details
+            error_log('JSON Parse Error: ' . json_last_error_msg());
+            error_log('Original AI Response: ' . substr($originalContent, 0, 500));
+            error_log('Extracted content: ' . substr($content, 0, 500));
+
+            throw new Exception('Failed to parse AI response as JSON: ' . json_last_error_msg() . '. AI returned: ' . substr($originalContent, 0, 200) . '...');
         }
 
         return $data;
