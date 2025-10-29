@@ -85,8 +85,12 @@ $basePath = defined('BASE_PATH') ? BASE_PATH : '/';
                     <span class="nav-icon">⚙️</span>
                     <span>Settings</span>
                 </a>
-                <a href="<?= $basePath ?>admin/ai-prompts.php" class="nav-item <?= $currentPage === 'ai-prompts' ? 'active' : '' ?>">
+                <a href="<?= $basePath ?>admin/theme-customizer.php" class="nav-item <?= $currentPage === 'theme-customizer' ? 'active' : '' ?>">
                     <span class="nav-icon">🎨</span>
+                    <span>Theme Customizer</span>
+                </a>
+                <a href="<?= $basePath ?>admin/ai-prompts.php" class="nav-item <?= $currentPage === 'ai-prompts' ? 'active' : '' ?>">
+                    <span class="nav-icon">✨</span>
                     <span>AI Prompts</span>
                 </a>
                 <a href="<?= $basePath ?>admin/users.php" class="nav-item <?= $currentPage === 'users' ? 'active' : '' ?>">

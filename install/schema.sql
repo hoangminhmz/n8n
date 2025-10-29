@@ -141,6 +141,44 @@ CREATE TABLE IF NOT EXISTS `prompt_templates` (
     KEY `idx_category` (`category`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Theme Customization System
+
+CREATE TABLE IF NOT EXISTS `theme_customizations` (
+    `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `name` VARCHAR(255) NOT NULL,
+    `description` TEXT,
+    `base_theme` VARCHAR(50) DEFAULT 'default',
+
+    -- CSS Variables (JSON)
+    `css_variables` TEXT,
+
+    -- Custom CSS
+    `custom_css` LONGTEXT,
+
+    -- Layout & Design Settings
+    `layout_style` VARCHAR(20) DEFAULT 'card', -- 'card', 'list', 'grid'
+    `layout_spacing` VARCHAR(20) DEFAULT 'normal', -- 'compact', 'normal', 'spacious'
+    `border_radius` VARCHAR(10) DEFAULT '8px', -- '0', '4px', '8px', '16px'
+
+    -- Font Settings
+    `font_family` VARCHAR(100) DEFAULT 'system-ui',
+    `font_scale` DECIMAL(3,2) DEFAULT 1.00, -- 0.90 to 1.20
+
+    -- Status
+    `is_active` TINYINT(1) DEFAULT 0,
+    `is_preview` TINYINT(1) DEFAULT 0,
+
+    -- Metadata
+    `created_by` INT(11),
+    `created_at` DATETIME,
+    `updated_at` DATETIME,
+    `ai_prompt` TEXT, -- Original user prompt
+
+    PRIMARY KEY (`id`),
+    KEY `idx_active` (`is_active`),
+    KEY `idx_created_by` (`created_by`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Pages System
 
 CREATE TABLE IF NOT EXISTS `pages` (
