@@ -6,7 +6,6 @@
 require_once __DIR__ . '/../config.php';
 require_once SITE_PATH . '/core/Database.php';
 require_once SITE_PATH . '/core/Auth.php';
-require_once SITE_PATH . '/core/Theme/ThemeCustomizer.php';
 
 $pageTitle = 'Debug Theme Generation';
 $auth = new Auth();
@@ -14,7 +13,6 @@ $auth->requireLogin();
 
 // Process test request
 $result = null;
-$rawResponse = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $prompt = trim($_POST['prompt'] ?? 'Modern minimalist theme with blue accents');
@@ -25,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         require_once SITE_PATH . '/core/AI/AIProviderFactory.php';
         $aiProvider = AIProviderFactory::create($provider);
 
-        // Build system prompt
+        // Build system prompt (same as ThemeCustomizer)
         $systemPrompt = 'You are a professional web designer specializing in blog themes. Generate theme customization settings.
 
 Base theme: Simple, clean blog design with card/list layouts
@@ -84,32 +82,51 @@ Output ONLY the JSON, no explanations.';
 
         $rawResponse = $aiResult['content'];
 
-        // Try to parse
-        $customizer = new ThemeCustomizer();
-        $reflection = new ReflectionClass($customizer);
-        $parseMethod = $reflection->getMethod('parseAIResponse');
-        $parseMethod->setAccessible(true);
+        // Try to parse manually
+        $parsed = null;
+        $parseError = null;
 
         try {
-            $parsed = $parseMethod->invoke($customizer, $rawResponse);
-            $result = [
-                'success' => true,
-                'parsed' => $parsed,
-                'raw' => $rawResponse
-            ];
+            $content = trim($rawResponse);
+
+            // Try different extraction methods
+            if (preg_match('/```(?:json)?\s*(\{[\s\S]*?\})\s*```/s', $content, $matches)) {
+                $content = trim($matches[1]);
+            } elseif (preg_match('/`(\{[\s\S]*?\})`/s', $content, $matches)) {
+                $content = trim($matches[1]);
+            } else {
+                $firstBrace = strpos($content, '{');
+                $lastBrace = strrpos($content, '}');
+
+                if ($firstBrace !== false && $lastBrace !== false && $lastBrace > $firstBrace) {
+                    $content = substr($content, $firstBrace, $lastBrace - $firstBrace + 1);
+                }
+            }
+
+            // Clean and decode
+            $content = preg_replace('/[\x00-\x1F\x7F]/u', '', $content);
+            $parsed = json_decode($content, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                $parseError = json_last_error_msg();
+            }
         } catch (Exception $e) {
-            $result = [
-                'success' => false,
-                'error' => $e->getMessage(),
-                'raw' => $rawResponse
-            ];
+            $parseError = $e->getMessage();
         }
+
+        $result = [
+            'success' => ($parsed !== null && $parseError === null),
+            'parsed' => $parsed,
+            'raw' => $rawResponse,
+            'error' => $parseError,
+            'extracted_content' => $content ?? null
+        ];
 
     } catch (Exception $e) {
         $result = [
             'success' => false,
             'error' => $e->getMessage(),
-            'raw' => $rawResponse ?? 'No response from AI'
+            'raw' => null
         ];
     }
 }
@@ -189,6 +206,8 @@ require_once __DIR__ . '/includes/header.php';
     overflow-x: auto;
     white-space: pre-wrap;
     word-break: break-all;
+    max-height: 400px;
+    overflow-y: auto;
 }
 
 .success {
@@ -217,16 +236,40 @@ require_once __DIR__ . '/includes/header.php';
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
+
+.info-box {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+    padding: 16px;
+    margin-bottom: 24px;
+}
+
+.info-box h4 {
+    margin: 0 0 8px 0;
+    color: #1e40af;
+    font-size: 14px;
+}
+
+.info-box p {
+    margin: 0;
+    color: #1e3a8a;
+    font-size: 13px;
+}
 </style>
 
 <div class="debug-container">
     <h2>🔍 Theme Generation Debug Tool</h2>
-    <p>Test theme generation and see the raw AI response for debugging.</p>
+
+    <div class="info-box">
+        <h4>ℹ️ How to use this tool</h4>
+        <p>This tool lets you test theme generation and see the raw AI response. Enter a theme description, choose an AI provider, and click "Test Generation". You'll see the complete AI response and whether it was successfully parsed as JSON.</p>
+    </div>
 
     <form method="POST" class="debug-form">
         <div class="form-group">
             <label for="prompt">Theme Description:</label>
-            <textarea name="prompt" id="prompt" placeholder="Modern minimalist theme with blue accents"><?= htmlspecialchars($_POST['prompt'] ?? '') ?></textarea>
+            <textarea name="prompt" id="prompt" placeholder="Modern minimalist theme with blue accents, card layout"><?= htmlspecialchars($_POST['prompt'] ?? 'Modern minimalist theme with blue accents, card layout') ?></textarea>
         </div>
 
         <div class="form-group">
@@ -244,27 +287,38 @@ require_once __DIR__ . '/includes/header.php';
     <?php if ($result): ?>
     <div class="debug-output">
         <div class="output-section">
-            <h3>Status:</h3>
+            <h3>📊 Status:</h3>
             <div class="output-content <?= $result['success'] ? 'success' : 'error' ?>">
-                <?= $result['success'] ? '✅ SUCCESS' : '❌ FAILED' ?>
-                <?php if (!$result['success']): ?>
-                    <br><br>Error: <?= htmlspecialchars($result['error']) ?>
+                <?= $result['success'] ? '✅ SUCCESS - JSON parsed successfully!' : '❌ FAILED - Could not parse JSON' ?>
+                <?php if (!$result['success'] && isset($result['error'])): ?>
+                    <br><br><strong>Parse Error:</strong> <?= htmlspecialchars($result['error']) ?>
                 <?php endif; ?>
             </div>
         </div>
 
+        <?php if ($result['raw']): ?>
         <div class="output-section">
-            <h3>Raw AI Response:</h3>
+            <h3>📄 Raw AI Response (complete):</h3>
             <div class="output-content">
                 <?= htmlspecialchars($result['raw']) ?>
             </div>
         </div>
+        <?php endif; ?>
+
+        <?php if (isset($result['extracted_content'])): ?>
+        <div class="output-section">
+            <h3>🔧 Extracted Content (after cleanup):</h3>
+            <div class="output-content">
+                <?= htmlspecialchars($result['extracted_content']) ?>
+            </div>
+        </div>
+        <?php endif; ?>
 
         <?php if ($result['success'] && isset($result['parsed'])): ?>
         <div class="output-section">
-            <h3>Parsed JSON:</h3>
+            <h3>✨ Parsed JSON (formatted):</h3>
             <div class="output-content">
-                <?= htmlspecialchars(json_encode($result['parsed'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) ?>
+                <?= htmlspecialchars(json_encode($result['parsed'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?>
             </div>
         </div>
         <?php endif; ?>
