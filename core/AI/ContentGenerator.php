@@ -8,6 +8,7 @@ class ContentGenerator {
     private $aiProvider;
     private $campaign;
     private $db;
+    private $promptManager;
 
     /**
      * Constructor
@@ -17,6 +18,10 @@ class ContentGenerator {
         $this->campaign = $campaign;
         $this->db = Database::getInstance();
         $this->initAIProvider();
+
+        // Initialize PromptManager for customizable prompts
+        require_once __DIR__ . '/PromptManager.php';
+        $this->promptManager = new PromptManager();
     }
 
     /**
@@ -74,14 +79,28 @@ class ContentGenerator {
         // Step 5: Generate featured image (placeholder for now)
         $featuredImage = $this->generateFeaturedImage($topic);
 
-        // Step 6: Generate SEO fields
-        $focusKeyword = $keywords['primary'][0] ?? $topic;
+        // Step 6: Generate SEO fields - extract meaningful focus keyword
+        $focusKeyword = $this->extractFocusKeyword($topic, $keywords);
         $canonicalUrl = SITE_URL . BASE_PATH . 'post/' . $this->generateSlug($metadata['title']);
 
         // Step 7: Extract FAQ data
         require_once __DIR__ . '/../SEO/FAQExtractor.php';
         $faqExtractor = new FAQExtractor();
         $faqs = $faqExtractor->extract($content);
+
+        // If no FAQs found in content, try to use outline FAQs
+        if (empty($faqs) && !empty($outline['faqs'])) {
+            $faqs = [];
+            foreach ($outline['faqs'] as $faq) {
+                if (!empty($faq['question'])) {
+                    $faqs[] = [
+                        'question' => $faq['question'],
+                        'answer' => $faq['answer_hint'] ?? 'See article for details.'
+                    ];
+                }
+            }
+        }
+
         $schemaType = $faqExtractor->detectSchemaType($content);
 
         // Step 8: Analyze content quality
@@ -152,30 +171,15 @@ class ContentGenerator {
         $primaryKeywords = implode(', ', $keywords['primary'] ?? []);
         $lsiKeywords = implode(', ', $keywords['lsi'] ?? []);
 
-        $prompt = "Create a detailed SEO-optimized article outline for: \"{$topic}\"
-
-Primary keywords: {$primaryKeywords}
-LSI keywords: {$lsiKeywords}
-
-Requirements:
-- Include H1, H2, and H3 headings
-- Add an FAQ section with 5 questions
-- Target word count: {$this->campaign->word_count_min}-{$this->campaign->word_count_max} words
-- Optimize for featured snippets
-- Include introduction and conclusion
-
-Format as JSON:
-{
-  \"h1\": \"Main title\",
-  \"sections\": [
-    {\"h2\": \"Section title\", \"h3\": [\"Subsection 1\", \"Subsection 2\"]},
-    ...
-  ],
-  \"faqs\": [
-    {\"question\": \"Q1\", \"answer_hint\": \"brief hint\"},
-    ...
-  ]
-}";
+        // Use customizable prompt from PromptManager
+        $prompt = $this->promptManager->getPrompt('post_outline', [
+            'topic' => $topic,
+            'primary_keywords' => $primaryKeywords,
+            'lsi_keywords' => $lsiKeywords,
+            'word_count_min' => $this->campaign->word_count_min ?? 1500,
+            'word_count_max' => $this->campaign->word_count_max ?? 2500,
+            'niche' => $this->campaign->niche ?? 'General'
+        ]);
 
         $result = $this->aiProvider->generate($prompt, [
             'temperature' => 0.8,
@@ -212,21 +216,14 @@ Format as JSON:
         $tone = $this->campaign->tone ?? 'professional';
         $primaryKeywords = implode(', ', $keywords['primary'] ?? []);
 
-        $prompt = "Write a comprehensive, engaging blog article based on this outline:
-
-" . json_encode($outline, JSON_PRETTY_PRINT) . "
-
-Requirements:
-- Tone: {$tone}
-- Naturally include these keywords: {$primaryKeywords}
-- Write in clear, engaging paragraphs
-- Add relevant examples and statistics
-- Include [PRODUCT_LINK] markers where affiliate products should be mentioned
-- Format as HTML with proper heading tags (h1, h2, h3)
-- Add bullet points and numbered lists where appropriate
-- Make it SEO-optimized and reader-friendly
-
-Write the complete article content now:";
+        // Use customizable prompt from PromptManager
+        $prompt = $this->promptManager->getPrompt('post_content', [
+            'outline' => json_encode($outline, JSON_PRETTY_PRINT),
+            'tone' => $tone,
+            'primary_keywords' => $primaryKeywords,
+            'niche' => $this->campaign->niche ?? 'General',
+            'word_count' => $this->campaign->word_count_min ?? 2000
+        ]);
 
         $result = $this->aiProvider->generate($prompt, [
             'temperature' => $this->campaign->ai_temperature ?? 0.7,
@@ -235,7 +232,14 @@ Write the complete article content now:";
             'system_prompt' => "You are an expert content writer specializing in {$this->campaign->niche}. Write engaging, informative content that ranks well in search engines."
         ]);
 
-        return $result['content'];
+        // Clean up markdown code blocks if AI returns them
+        $content = $result['content'];
+        $content = preg_replace('/^```html\s*/i', '', $content);
+        $content = preg_replace('/^```\s*/m', '', $content);
+        $content = preg_replace('/\s*```$/s', '', $content);
+        $content = trim($content);
+
+        return $content;
     }
 
     /**
@@ -247,21 +251,14 @@ Write the complete article content now:";
     private function generateMetadata($topic, $keywords) {
         $primaryKeyword = $keywords['primary'][0] ?? $topic;
 
-        $prompt = "Generate SEO metadata for an article about: \"{$topic}\"
-
-Primary keyword: {$primaryKeyword}
-
-Create:
-1. An SEO-optimized title (55-60 characters, include keyword)
-2. A meta description (150-160 characters, compelling, include keyword)
-3. An alternative SEO title for rich snippets
-
-Format as JSON:
-{
-  \"title\": \"Catchy title here\",
-  \"seo_title\": \"SEO optimized title\",
-  \"meta_description\": \"Compelling description\"
-}";
+        // Use customizable prompt from PromptManager
+        $prompt = $this->promptManager->getPrompt('post_title', [
+            'topic' => $topic,
+            'primary_keyword' => $primaryKeyword,
+            'niche' => $this->campaign->niche ?? 'General',
+            'tone' => $this->campaign->tone ?? 'professional',
+            'year' => date('Y')
+        ]);
 
         $result = $this->aiProvider->generate($prompt, [
             'temperature' => 0.9,
@@ -269,18 +266,59 @@ Format as JSON:
             'campaign_id' => $this->campaign->id
         ]);
 
-        $metadata = json_decode($result['content'], true);
+        // Clean markdown if present
+        $jsonContent = $result['content'];
+        $jsonContent = preg_replace('/^```json\s*/i', '', $jsonContent);
+        $jsonContent = preg_replace('/^```\s*/m', '', $jsonContent);
+        $jsonContent = preg_replace('/\s*```$/s', '', $jsonContent);
+        $jsonContent = trim($jsonContent);
 
-        if (!$metadata) {
-            // Fallback
+        $metadata = json_decode($jsonContent, true);
+
+        if (!$metadata || empty($metadata['meta_description'])) {
+            // Fallback - create description from topic
             $metadata = [
                 'title' => $topic,
                 'seo_title' => $topic,
-                'meta_description' => substr($topic, 0, 155)
+                'meta_description' => "Discover everything you need to know about {$primaryKeyword}. Expert insights, tips, and comprehensive guide."
             ];
         }
 
         return $metadata;
+    }
+
+    /**
+     * Extract focus keyword from topic
+     * @param string $topic Topic
+     * @param array $keywords Keywords array
+     * @return string Focus keyword
+     */
+    private function extractFocusKeyword($topic, $keywords) {
+        // Priority 1: Use primary keyword if available
+        if (!empty($keywords['primary'][0])) {
+            return $keywords['primary'][0];
+        }
+
+        // Priority 2: Extract main keyword from topic (2-4 words)
+        // Remove common article prefixes
+        $cleaned = preg_replace('/^(the|a|an|how to|guide to|best|top|what is|why|when|where)\s+/i', '', $topic);
+
+        // Remove year patterns like "2025", "in 2024"
+        $cleaned = preg_replace('/\s+(in\s+)?\d{4}(\s+|$)/i', ' ', $cleaned);
+
+        // Remove phrases like "for optimal health and comfort"
+        $cleaned = preg_replace('/\s+for\s+[^:]+$/i', '', $cleaned);
+
+        // Get first 2-4 important words
+        $words = preg_split('/\s+/', trim($cleaned));
+        $words = array_filter($words, function($w) {
+            return strlen($w) > 2; // Skip short words like "of", "in", "to"
+        });
+
+        // Take first 2-4 words
+        $keywordWords = array_slice($words, 0, min(4, count($words)));
+
+        return implode(' ', $keywordWords);
     }
 
     /**
@@ -289,12 +327,31 @@ Format as JSON:
      * @return string Excerpt
      */
     private function generateExcerpt($content) {
+        // Remove any markdown code blocks remnants
+        $content = preg_replace('/```[a-z]*\s*/i', '', $content);
+
+        // Strip HTML tags
         $text = strip_tags($content);
+
+        // Clean up whitespace
         $text = preg_replace('/\s+/', ' ', $text);
         $text = trim($text);
 
-        if (strlen($text) > 200) {
-            return substr($text, 0, 197) . '...';
+        // Get first 160 characters (good for meta description length)
+        if (strlen($text) > 160) {
+            // Find last complete sentence within 160 chars
+            $excerpt = substr($text, 0, 160);
+            $lastPeriod = strrpos($excerpt, '.');
+            $lastQuestion = strrpos($excerpt, '?');
+            $lastExclaim = strrpos($excerpt, '!');
+
+            $lastSentence = max($lastPeriod, $lastQuestion, $lastExclaim);
+
+            if ($lastSentence !== false && $lastSentence > 100) {
+                return substr($text, 0, $lastSentence + 1);
+            }
+
+            return substr($text, 0, 157) . '...';
         }
 
         return $text;
@@ -328,8 +385,22 @@ Format as JSON:
      * @return string Image URL
      */
     private function generateFeaturedImage($topic) {
-        // For now, return a placeholder
-        // In production, integrate with image APIs like Unsplash, Pexels, or AI image generation
-        return 'https://via.placeholder.com/1200x630?text=' . urlencode($topic);
+        try {
+            // Use ImageGenerator for automatic image generation
+            require_once __DIR__ . '/ImageGenerator.php';
+
+            $imageGen = new ImageGenerator($this->campaign->image_provider ?? 'auto');
+            $result = $imageGen->generateThumbnail($topic, [
+                'size' => '1200x630',
+                'quality' => 'standard'
+            ]);
+
+            return $result['image_url'] ?? 'https://via.placeholder.com/1200x630?text=' . urlencode($topic);
+
+        } catch (Exception $e) {
+            // Fallback to placeholder if image generation fails
+            error_log("Image generation failed: " . $e->getMessage());
+            return 'https://via.placeholder.com/1200x630?text=' . urlencode($topic);
+        }
     }
 }

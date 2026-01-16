@@ -110,4 +110,65 @@ class OpenAIProvider extends AIProvider {
             'gpt-3.5-turbo' => 'GPT-3.5 Turbo (Fast and economical)'
         ];
     }
+
+    /**
+     * Generate image using DALL-E 3
+     * @param string $prompt Text description of the image
+     * @param array $options Options (size, quality, style, campaign_id)
+     * @return array
+     */
+    public function generateImage($prompt, $options = []) {
+        if (!$this->validateApiKey()) {
+            throw new Exception('OpenAI API key not configured');
+        }
+
+        $data = [
+            'model' => 'dall-e-3',
+            'prompt' => $prompt,
+            'n' => 1,
+            'size' => $options['size'] ?? '1024x1024', // 1024x1024, 1024x1792, 1792x1024
+            'quality' => $options['quality'] ?? 'standard', // standard or hd
+            'style' => $options['style'] ?? 'vivid' // vivid or natural
+        ];
+
+        try {
+            $headers = [
+                'Content-Type: application/json',
+                'Authorization: Bearer ' . $this->api_key
+            ];
+
+            $result = $this->makeRequest('https://api.openai.com/v1/images/generations', $data, $headers);
+
+            if (isset($result['error'])) {
+                throw new Exception('DALL-E Error: ' . $result['error']['message']);
+            }
+
+            $imageUrl = $result['data'][0]['url'] ?? '';
+
+            if (empty($imageUrl)) {
+                throw new Exception('No image URL returned from DALL-E');
+            }
+
+            // DALL-E 3 pricing: $0.040 per image for standard 1024x1024, $0.080 for HD
+            $cost = ($options['quality'] === 'hd') ? 0.080 : 0.040;
+
+            // For larger sizes
+            if (in_array($data['size'], ['1024x1792', '1792x1024'])) {
+                $cost = ($options['quality'] === 'hd') ? 0.120 : 0.080;
+            }
+
+            // Log usage (use 0 tokens for image generation, cost is per image)
+            $this->logUsage(0, $cost, $options['campaign_id'] ?? null);
+
+            return [
+                'image_url' => $imageUrl,
+                'cost' => $cost,
+                'provider' => 'openai',
+                'model' => 'dall-e-3'
+            ];
+
+        } catch (Exception $e) {
+            throw new Exception('DALL-E image generation failed: ' . $e->getMessage());
+        }
+    }
 }

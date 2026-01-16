@@ -17,6 +17,7 @@ define('AUTOBLOG_ENABLED', true);
 define('OPENAI_API_KEY', '');
 define('CLAUDE_API_KEY', '');
 define('GEMINI_API_KEY', 'AIzaSyDI3GL1bJQCrF4Vq13jeNaZq-CqEjXeys8');
+define('UNSPLASH_API_KEY', '');
 define('DEBUG_MODE', false);
 define('SITE_DEBUG', false); // Added for AJAX error handling
 

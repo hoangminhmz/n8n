@@ -131,4 +131,15 @@ class ClaudeProvider extends AIProvider {
             'claude-3-haiku-20240307' => 'Claude 3 Haiku (Fast and economical)'
         ];
     }
+
+    /**
+     * Generate image - Claude doesn't support image generation
+     * @param string $prompt Text description of the image
+     * @param array $options Options (size, quality, style, campaign_id)
+     * @return array
+     */
+    public function generateImage($prompt, $options = []) {
+        // Claude doesn't have image generation capabilities
+        throw new Exception('Claude provider does not support image generation. Please configure OpenAI API key to use AI-generated thumbnails with DALL-E 3.');
+    }
 }

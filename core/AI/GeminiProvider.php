@@ -12,18 +12,31 @@ class GeminiProvider extends AIProvider {
     /**
      * Constructor
      * @param string $api_key Google AI Studio API key
-     * @param string $model Model to use (default: gemini-2.0-flash-exp)
+     * @param string $model Model to use (default: gemini-2.5-flash)
      */
-    public function __construct($api_key, $model = 'gemini-2.0-flash-exp') {
+    public function __construct($api_key, $model = 'gemini-2.5-flash') {
         parent::__construct($api_key, $model);
 
-        // Map model names to correct API names
+        // Map common model names to correct Google API names
+        // Based on: https://ai.google.dev/gemini-api/docs/models/gemini
         $modelMap = [
+            // Gemini 2.5 (Latest - December 2024)
             'gemini-2.5-flash' => 'gemini-2.5-flash',
+            'gemini-2.5-pro' => 'gemini-2.5-pro',
+            'gemini-2.5-flash-lite' => 'gemini-2.5-flash-lite',
+
+            // Gemini 2.0 (Experimental)
             'gemini-2.0-flash-exp' => 'gemini-2.0-flash-exp',
-            'gemini-1.5-pro' => 'gemini-1.5-pro-latest',
-            'gemini-1.5-flash' => 'gemini-flash-latest',
-            'gemini-pro' => 'gemini-pro'
+
+            // Gemini 1.5 (Stable, Legacy)
+            'gemini-1.5-flash' => 'gemini-1.5-flash',
+            'gemini-1.5-flash-8b' => 'gemini-1.5-flash-8b',
+            'gemini-1.5-pro' => 'gemini-1.5-pro',
+
+            // Convenience aliases
+            'gemini-pro' => 'gemini-2.5-pro', // Latest Pro
+            'gemini-flash' => 'gemini-2.5-flash', // Latest Flash
+            'gemini-lite' => 'gemini-2.5-flash-lite', // Lightest/Fastest
         ];
 
         // Use mapped model name if exists
@@ -162,5 +175,20 @@ class GeminiProvider extends AIProvider {
             'gemini-1.5-flash' => 'Gemini 1.5 Flash (Fast and efficient)',
             'gemini-pro' => 'Gemini Pro (Legacy)'
         ];
+    }
+
+    /**
+     * Generate image - Gemini doesn't have simple image generation yet
+     * Falls back to PHP GD-based generation
+     * @param string $prompt Text description of the image
+     * @param array $options Options (size, quality, style, campaign_id)
+     * @return array
+     */
+    public function generateImage($prompt, $options = []) {
+        // Note: Google Imagen 3 requires Vertex AI setup which is complex
+        // For now, we throw exception and let ImageGenerator fallback to PHP GD
+        // This keeps the API simple while maintaining quality
+
+        throw new Exception('Gemini provider does not support direct image generation. Please configure OpenAI API key to use AI-generated thumbnails with DALL-E 3.');
     }
 }

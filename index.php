@@ -9,12 +9,23 @@ if (file_exists(__DIR__ . '/config.php')) {
     require_once __DIR__ . '/config.php';
 } else {
     // Redirect to installation if config doesn't exist
-    if (file_exists(__DIR__ . '/install.php')) {
-        header('Location: /install.php');
+    if (file_exists(__DIR__ . '/install/index.php')) {
+        // Calculate base path for redirect
+        $scriptPath = dirname($_SERVER['SCRIPT_NAME']);
+        $basePath = $scriptPath === '/' ? '/' : rtrim($scriptPath, '/') . '/';
+        header('Location: ' . $basePath . 'install/index.php');
         exit;
     } else {
-        die('Configuration file not found. Please copy config.sample.php to config.php and configure your settings.');
+        die('Configuration file not found. Please run the installation wizard at /install/');
     }
+}
+
+// Define fallback constants if not set
+if (!defined('CURRENT_THEME')) {
+    define('CURRENT_THEME', 'default');
+}
+if (!defined('CONTENT_PATH')) {
+    define('CONTENT_PATH', SITE_PATH . '/content');
 }
 
 // Load core classes
@@ -103,6 +114,51 @@ $router->add('#^/tag/([a-z0-9-]+)$#', function($slug) use ($db) {
     ", [$tag->id]);
 
     include SITE_PATH . '/themes/' . CURRENT_THEME . '/archive.php';
+});
+
+// Generic slug route - checks pages first, then posts
+// NOTE: This must be last so specific routes above are matched first
+$router->add('#^/([a-z0-9-]+)$#', function($slug) use ($db) {
+    // Try to find a page first (pages have priority over posts)
+    $page = $db->queryOne("SELECT * FROM pages WHERE slug = ? AND status = 'published'", [$slug]);
+
+    if ($page) {
+        // Page found - increment view count
+        $db->query("UPDATE pages SET views = views + 1 WHERE id = ?", [$page->id]);
+
+        // Set current page for template functions
+        Template::setCurrentPage($page);
+
+        // Determine which template to use
+        $templateFile = 'page.php';
+        if ($page->template && $page->template !== 'default') {
+            $customTemplate = SITE_PATH . '/themes/' . CURRENT_THEME . '/page-' . $page->template . '.php';
+            if (file_exists($customTemplate)) {
+                $templateFile = 'page-' . $page->template . '.php';
+            }
+        }
+
+        include SITE_PATH . '/themes/' . CURRENT_THEME . '/' . $templateFile;
+        return;
+    }
+
+    // No page found, try post (for backward compatibility with /post/slug URLs)
+    $post = $db->queryOne("SELECT * FROM posts WHERE slug = ? AND status = 'published'", [$slug]);
+
+    if ($post) {
+        // Post found - increment view count
+        $db->query("UPDATE posts SET views = views + 1 WHERE id = ?", [$post->id]);
+
+        // Set current post for template functions
+        Template::setCurrentPost($post);
+
+        include SITE_PATH . '/themes/' . CURRENT_THEME . '/single.php';
+        return;
+    }
+
+    // Neither page nor post found - 404
+    http_response_code(404);
+    include SITE_PATH . '/themes/' . CURRENT_THEME . '/404.php';
 });
 
 // Dispatch request

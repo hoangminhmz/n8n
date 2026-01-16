@@ -6,9 +6,14 @@
 
 class Campaign {
     private $db;
+    private $promptManager;
 
     public function __construct() {
         $this->db = Database::getInstance();
+
+        // Initialize PromptManager for customizable prompts
+        require_once __DIR__ . '/../AI/PromptManager.php';
+        $this->promptManager = new PromptManager();
     }
 
     /**
@@ -93,7 +98,7 @@ class Campaign {
     }
 
     /**
-     * Generate topics for campaign using AI
+     * Generate topics for campaign using AI with duplicate detection
      */
     public function generateTopics($campaign_id, $count = 10) {
         $campaign = $this->get($campaign_id);
@@ -103,25 +108,122 @@ class Campaign {
 
         $seedKeywords = json_decode($campaign->seed_keywords, true) ?? [];
 
+        // Get existing topics to avoid duplicates
+        $existingTopics = $this->getExistingTopics($campaign_id);
+
         // Try AI-powered topic generation first
         try {
-            $aiTopics = $this->generateTopicsWithAI($campaign, $seedKeywords, $count);
+            $aiTopics = $this->generateTopicsWithAI($campaign, $seedKeywords, $count, $existingTopics);
             if (!empty($aiTopics)) {
-                return $aiTopics;
+                // Filter out duplicates
+                $uniqueTopics = $this->filterDuplicates($aiTopics, $existingTopics);
+
+                // If we got enough unique topics, return them
+                if (count($uniqueTopics) >= min($count, count($aiTopics) * 0.7)) {
+                    return array_slice($uniqueTopics, 0, $count);
+                }
+
+                // If not enough unique topics, generate more
+                if (count($uniqueTopics) < $count) {
+                    $additionalCount = $count - count($uniqueTopics);
+                    $moreTopics = $this->generateTopicsWithAI($campaign, $seedKeywords, $additionalCount * 2, array_merge($existingTopics, $uniqueTopics));
+                    $uniqueTopics = array_merge($uniqueTopics, $this->filterDuplicates($moreTopics, array_merge($existingTopics, $uniqueTopics)));
+                }
+
+                return array_slice($uniqueTopics, 0, $count);
             }
         } catch (Exception $e) {
-            // Fall through to template-based generation if AI fails
-            error_log("AI topic generation failed: " . $e->getMessage());
+            // Log detailed error
+            error_log("AI topic generation failed for campaign {$campaign_id}: " . $e->getMessage());
+
+            // Throw error so user knows AI failed (don't silently fall back to templates)
+            throw new Exception("AI topic generation failed: " . $e->getMessage() . ". Please check your AI provider settings and API keys in Admin → Settings.");
         }
 
-        // Fallback: Template-based topic generation
-        return $this->generateTopicsWithTemplates($seedKeywords, $count);
+        return [];
+    }
+
+    /**
+     * Get existing topics from posts and queue to avoid duplicates
+     */
+    private function getExistingTopics($campaign_id) {
+        $topics = [];
+
+        // Get topics from published and draft posts
+        $posts = $this->db->query("
+            SELECT DISTINCT title
+            FROM posts
+            WHERE campaign_id = ?
+        ", [$campaign_id]);
+
+        foreach ($posts as $post) {
+            $topics[] = strtolower(trim($post->title));
+        }
+
+        // Get topics from queue
+        $queueItems = $this->db->query("
+            SELECT DISTINCT topic
+            FROM ai_queue
+            WHERE campaign_id = ?
+        ", [$campaign_id]);
+
+        foreach ($queueItems as $item) {
+            $topics[] = strtolower(trim($item->topic));
+        }
+
+        return $topics;
+    }
+
+    /**
+     * Filter out duplicate topics using similarity matching
+     */
+    private function filterDuplicates($newTopics, $existingTopics) {
+        $unique = [];
+
+        foreach ($newTopics as $topic) {
+            $isDuplicate = false;
+            $topicLower = strtolower(trim($topic));
+
+            // Check exact match
+            if (in_array($topicLower, $existingTopics)) {
+                continue;
+            }
+
+            // Check similarity with existing topics
+            foreach ($existingTopics as $existing) {
+                $similarity = 0;
+                similar_text($topicLower, $existing, $similarity);
+
+                // If topics are more than 80% similar, consider them duplicates
+                if ($similarity > 80) {
+                    $isDuplicate = true;
+                    break;
+                }
+            }
+
+            // Check similarity with already selected unique topics
+            foreach ($unique as $selectedTopic) {
+                $similarity = 0;
+                similar_text($topicLower, strtolower($selectedTopic), $similarity);
+
+                if ($similarity > 80) {
+                    $isDuplicate = true;
+                    break;
+                }
+            }
+
+            if (!$isDuplicate) {
+                $unique[] = $topic;
+            }
+        }
+
+        return $unique;
     }
 
     /**
      * Generate topics using AI based on campaign settings
      */
-    private function generateTopicsWithAI($campaign, $seedKeywords, $count) {
+    private function generateTopicsWithAI($campaign, $seedKeywords, $count, $existingTopics = []) {
         // Initialize AI provider based on campaign settings
         $provider = $campaign->ai_provider ?? 'gemini';
         $model = $campaign->ai_model ?? 'gemini-2.5-flash';
@@ -168,29 +270,29 @@ class Campaign {
             'authority' => 'Focus on comprehensive, in-depth topics that establish expertise and thought leadership.'
         ];
 
-        $prompt = "Generate {$count} highly engaging and SEO-optimized blog article topics for a {$niche} blog.
+        // Build list of existing topics to avoid
+        $existingTopicsStr = '';
+        if (!empty($existingTopics)) {
+            $sampleExisting = array_slice($existingTopics, 0, 20); // Show up to 20 examples
+            $existingTopicsStr = "These topics already exist. Generate COMPLETELY DIFFERENT topics:\n";
+            foreach ($sampleExisting as $existing) {
+                $existingTopicsStr .= "- " . $existing . "\n";
+            }
+            if (count($existingTopics) > 20) {
+                $existingTopicsStr .= "... and " . (count($existingTopics) - 20) . " more.\n";
+            }
+            $existingTopicsStr .= "\nDo NOT create topics similar to these. Be creative and explore NEW angles!";
+        }
 
-**Seed Keywords:** {$keywordsStr}
-
-**Campaign Goal:** {$goal}
-{$goalContext[$goal]}
-
-**Tone:** {$tone}
-
-**Requirements:**
-- Create diverse, unique topics that cover different angles and aspects
-- Include current year ({$currentYear}) where relevant for freshness
-- Make topics compelling and click-worthy
-- Ensure topics have good search potential and user intent
-- Mix different content types: how-to guides, listicles, comparisons, case studies, trends
-- Topics should naturally incorporate the seed keywords but not be repetitive
-- Each topic should be specific enough to write a focused {$campaign->word_count_min}-{$campaign->word_count_max} word article
-
-**Output Format:**
-Return ONLY a valid JSON array of topic strings. No additional text.
-Example: [\"Topic 1 here\", \"Topic 2 here\", \"Topic 3 here\"]
-
-Generate {$count} topics now:";
+        // Use customizable prompt from PromptManager
+        $prompt = $this->promptManager->getPrompt('campaign_topics', [
+            'count' => $count,
+            'niche' => $niche,
+            'seed_keywords' => $keywordsStr,
+            'target_audience' => $campaign->target_audience ?? 'general audience',
+            'existing_topics' => $existingTopicsStr,
+            'year' => $currentYear
+        ]);
 
         // Call AI to generate topics
         $result = $aiProvider->generate($prompt, [
@@ -202,15 +304,23 @@ Generate {$count} topics now:";
         // Parse JSON response
         $content = trim($result['content']);
 
+        // Debug: Log raw response for troubleshooting
+        error_log("Campaign {$campaign->id} - AI raw response: " . substr($content, 0, 500));
+
         // Try to extract JSON array from response (in case AI adds extra text)
         if (preg_match('/\[[\s\S]*\]/', $content, $matches)) {
             $content = $matches[0];
+            error_log("Campaign {$campaign->id} - Extracted JSON: " . substr($content, 0, 500));
         }
 
         $topics = json_decode($content, true);
 
         if (!is_array($topics) || empty($topics)) {
-            throw new Exception('Invalid AI response format');
+            // Log the actual response for debugging
+            error_log("Campaign {$campaign->id} - JSON decode failed. Content: " . $content);
+            error_log("Campaign {$campaign->id} - json_last_error: " . json_last_error_msg());
+
+            throw new Exception('Invalid AI response format. Raw response: ' . substr($content, 0, 200) . '...');
         }
 
         // Return requested number of topics

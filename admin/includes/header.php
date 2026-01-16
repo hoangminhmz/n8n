@@ -47,6 +47,10 @@ $basePath = defined('BASE_PATH') ? BASE_PATH : '/';
                     <span class="nav-icon">📝</span>
                     <span>Posts</span>
                 </a>
+                <a href="<?= $basePath ?>admin/pages.php" class="nav-item <?= $currentPage === 'pages' ? 'active' : '' ?>">
+                    <span class="nav-icon">📄</span>
+                    <span>Pages</span>
+                </a>
                 <a href="<?= $basePath ?>admin/categories.php" class="nav-item <?= $currentPage === 'categories' ? 'active' : '' ?>">
                     <span class="nav-icon">📁</span>
                     <span>Categories</span>
@@ -54,6 +58,10 @@ $basePath = defined('BASE_PATH') ? BASE_PATH : '/';
                 <a href="<?= $basePath ?>admin/media.php" class="nav-item <?= $currentPage === 'media' ? 'active' : '' ?>">
                     <span class="nav-icon">🖼️</span>
                     <span>Media</span>
+                </a>
+                <a href="<?= $basePath ?>admin/menus.php" class="nav-item <?= $currentPage === 'menus' ? 'active' : '' ?>">
+                    <span class="nav-icon">🗂️</span>
+                    <span>Menus</span>
                 </a>
 
                 <div class="nav-section">AI Auto-Blogging</div>
@@ -76,6 +84,14 @@ $basePath = defined('BASE_PATH') ? BASE_PATH : '/';
                 <a href="<?= $basePath ?>admin/settings.php" class="nav-item <?= $currentPage === 'settings' ? 'active' : '' ?>">
                     <span class="nav-icon">⚙️</span>
                     <span>Settings</span>
+                </a>
+                <a href="<?= $basePath ?>admin/theme-customizer.php" class="nav-item <?= $currentPage === 'theme-customizer' ? 'active' : '' ?>">
+                    <span class="nav-icon">🎨</span>
+                    <span>Theme Customizer</span>
+                </a>
+                <a href="<?= $basePath ?>admin/ai-prompts.php" class="nav-item <?= $currentPage === 'ai-prompts' ? 'active' : '' ?>">
+                    <span class="nav-icon">✨</span>
+                    <span>AI Prompts</span>
                 </a>
                 <a href="<?= $basePath ?>admin/users.php" class="nav-item <?= $currentPage === 'users' ? 'active' : '' ?>">
                     <span class="nav-icon">👥</span>
